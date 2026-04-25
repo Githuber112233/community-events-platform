@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>邻里时光 - 社区兴趣活动平台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #FAFAF7;
+      --bg-card: #FFFFFF;
+      --text-primary: #1A1A1A;
+      --text-secondary: #666666;
+      --text-muted: #999999;
+      --border-color: #E8E8E3;
+      --accent-green: #2D7D46;
+      --accent-green-light: #E8F5EC;
+      --accent-orange: #E67E22;
+      --accent-orange-light: #FEF3E7;
+      --accent-blue: #4A7DB1;
+      --accent-blue-light: #EDF3F9;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+
+    /* 导航栏 */
+    .navbar {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-color);
+      padding: 0 24px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .navbar-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--accent-green);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 18px;
+    }
+
+    .logo-text {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 8px;
+    }
+
+    .nav-link {
+      padding: 8px 16px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 15px;
+      border-radius: var(--radius-sm);
+      transition: all 0.2s;
+    }
+
+    .nav-link:hover {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+    }
+
+    .nav-link.active {
+      background: var(--accent-green-light);
+      color: var(--accent-green);
+      font-weight: 500;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 8px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+      text-decoration: none;
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .btn-outline:hover {
+      border-color: var(--text-muted);
+      background: var(--bg-primary);
+    }
+
+    .btn-primary {
+      background: var(--accent-green);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #246538;
+    }
+
+    /* 容器 */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Hero区域 - 重新设计 */
+    .hero {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-color);
+      padding: 48px 0;
+    }
+
+    .hero-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      align-items: center;
+    }
+
+    .hero-content h1 {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 16px;
+      line-height: 1.3;
+    }
+
+    .hero-content p {
+      font-size: 16px;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+      max-width: 480px;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .hero-visual {
+      display: flex;
+      gap: 16px;
+    }
+
+    .hero-card {
+      flex: 1;
+      background: var(--bg-primary);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      border: 1px solid var(--border-color);
+    }
+
+    .hero-card:first-child {
+      transform: translateY(-12px);
+    }
+
+    .hero-card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hero-card-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .hero-card-item:last-child {
+      border-bottom: none;
+    }
+
+    .hero-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--accent-green-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      color: var(--accent-green);
+    }
+
+    .hero-avatar.orange {
+      background: var(--accent-orange-light);
+      color: var(--accent-orange);
+    }
+
+    .hero-card-info h4 {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .hero-card-info span {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* 分类标签 - 横向滑动 */
+    .categories {
+      padding: 24px 0;
+      background: var(--bg-primary);
+      overflow: hidden;
+    }
+
+    .categories-inner {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      scrollbar-width: none;
+    }
+
+    .categories-inner::-webkit-scrollbar {
+      display: none;
+    }
+
+    .category-tag {
+      flex-shrink: 0;
+      padding: 10px 18px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      font-size: 14px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .category-tag:hover {
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+    }
+
+    .category-tag.active {
+      background: var(--accent-green);
+      border-color: var(--accent-green);
+      color: white;
+    }
+
+    /* 活动列表 */
+    .section {
+      padding: 32px 0;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .section-subtitle {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .events-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    /* 活动卡片 - 重新设计 */
+    .event-card {
+      background: var(--bg-card);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .event-card:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+    }
+
+    .event-image {
+      height: 160px;
+      background-size: cover;
+      background-position: center;
+      position: relative;
+    }
+
+    .event-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .event-badge.new {
+      background: var(--accent-green);
+      color: white;
+    }
+
+    .event-badge.hot {
+      background: var(--accent-orange);
+      color: white;
+    }
+
+    .event-category {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      padding: 4px 10px;
+      background: rgba(255,255,255,0.95);
+      border-radius: 4px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .event-content {
+      padding: 16px;
+    }
+
+    .event-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .event-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .event-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .event-meta-icon {
+      width: 16px;
+      height: 16px;
+      color: var(--text-muted);
+    }
+
+    .event-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .event-organizer {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .event-organizer-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--accent-blue-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: var(--accent-blue);
+    }
+
+    .event-organizer-name {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .event-stats {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .event-stat {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* 用户卡片 */
+    .user-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+    }
+
+    .user-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .user-info h4 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .user-info p {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* 通知卡片 */
+    .notice-card {
+      background: var(--accent-orange-light);
+      border: 1px solid rgba(230, 126, 34, 0.2);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .notice-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--accent-orange);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .notice-content h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .notice-content p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* 热门组织 */
+    .org-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .org-card:hover {
+      box-shadow: var(--shadow-md);
+    }
+
+    .org-avatar {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      margin: 0 auto 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .org-card h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .org-card p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* 页脚 */
+    .footer {
+      background: var(--bg-card);
+      border-top: 1px solid var(--border-color);
+      padding: 40px 0 24px;
+      margin-top: 48px;
+    }
+
+    .footer-inner {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 48px;
+      margin-bottom: 32px;
+    }
+
+    .footer-brand h3 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .footer-brand p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .footer-links h4 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .footer-links a {
+      display: block;
+      font-size: 14px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      margin-bottom: 10px;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover {
+      color: var(--accent-green);
+    }
+
+    .footer-bottom {
+      padding-top: 24px;
+      border-top: 1px solid var(--border-color);
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* 搜索栏 */
+    .search-bar {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .search-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      font-size: 15px;
+      color: var(--text-primary);
+      background: transparent;
+    }
+
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    /* 进度条 */
+    .progress-bar {
+      height: 6px;
+      background: var(--border-color);
+      border-radius: 3px;
+      overflow: hidden;
+      width: 80px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+
+    .progress-fill.low {
+      background: var(--accent-green);
+    }
+
+    .progress-fill.medium {
+      background: var(--accent-orange);
+    }
+
+    .progress-fill.high {
+      background: #E74C3C;
+    }
+
+    /* 响应式 */
+    @media (max-width: 1024px) {
+      .hero-inner {
+        grid-template-columns: 1fr;
+        gap: 32px;
+      }
+      
+      .hero-visual {
+        display: none;
+      }
+
+      .events-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .events-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-inner {
+        grid-template-columns: 1fr 1fr;
+        gap: 32px;
+      }
+
+      .nav-links {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- 导航栏 -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <a href="#" class="logo">
+        <div class="logo-icon">邻</div>
+        <span class="logo-text">邻里时光</span>
+      </a>
+      
+      <div class="nav-links">
+        <a href="#" class="nav-link active">首页</a>
+        <a href="#" class="nav-link">活动</a>
+        <a href="#" class="nav-link">组织</a>
+        <a href="#" class="nav-link">我的</a>
+      </div>
+      
+      <div class="nav-actions">
+        <button class="btn btn-outline">登录</button>
+        <button class="btn btn-primary">发活动</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero区域 -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-inner">
+        <div class="hero-content">
+          <h1>和邻居一起，<br>发现社区里的精彩</h1>
+          <p>加入身边的兴趣小组，参加社区活动，找到志同道合的朋友。让周末不再无聊，让社区更有温度。</p>
+          <div class="hero-actions">
+            <button class="btn btn-primary" style="padding: 12px 28px; font-size: 15px;">探索活动</button>
+            <button class="btn btn-outline" style="padding: 12px 28px; font-size: 15px;">创建活动</button>
+          </div>
+        </div>
+        
+        <div class="hero-visual">
+          <div class="hero-card">
+            <div class="hero-card-title">
+              <span>🌱</span> 近期活动
+            </div>
+            <div class="hero-card-item">
+              <div class="hero-avatar">书</div>
+              <div class="hero-card-info">
+                <h4>周末读书会</h4>
+                <span>本周六 14:00 · 12人参加</span>
+              </div>
+            </div>
+            <div class="hero-card-item">
+              <div class="hero-avatar orange">摄</div>
+              <div class="hero-card-info">
+                <h4>街头摄影采风</h4>
+                <span>本周日 09:00 · 8人参加</span>
+              </div>
+            </div>
+          </div>
+          <div class="hero-card">
+            <div class="hero-card-title">
+              <span>🏃</span> 热门小组
+            </div>
+            <div class="hero-card-item">
+              <div class="hero-avatar">跑</div>
+              <div class="hero-card-info">
+                <h4>晨跑团</h4>
+                <span>168名成员 · 每周活动</span>
+              </div>
+            </div>
+            <div class="hero-card-item">
+              <div class="hero-avatar orange">亲</div>
+              <div class="hero-card-info">
+                <h4>亲子户外</h4>
+                <span>256名成员 · 活动频繁</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 分类标签 -->
+  <section class="categories">
+    <div class="container">
+      <div class="categories-inner">
+        <div class="category-tag active">全部</div>
+        <div class="category-tag">🏃 运动健身</div>
+        <div class="category-tag">📚 读书分享</div>
+        <div class="category-tag">🎨 艺术手工</div>
+        <div class="category-tag">🎵 音乐舞蹈</div>
+        <div class="category-tag">👶 亲子活动</div>
+        <div class="category-tag">🍜 美食烹饪</div>
+        <div class="category-tag">💻 科技数码</div>
+        <div class="category-tag">🌿 户外自然</div>
+        <div class="category-tag">🎮 游戏桌游</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 搜索栏 -->
+  <section class="section" style="padding-top: 0;">
+    <div class="container">
+      <div class="search-bar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.35-4.35"></path>
+        </svg>
+        <input type="text" class="search-input" placeholder="搜索活动名称、组织者或关键词...">
+        <button class="btn btn-primary" style="padding: 8px 20px;">搜索</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 活动列表 -->
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">最新活动</h2>
+          <p class="section-subtitle">看看邻居们都在玩什么</p>
+        </div>
+      </div>
+      
+      <div class="events-grid">
+        <!-- 活动卡片1 -->
+        <div class="event-card">
+          <div class="event-image" style="background-image: url('https://images.unsplash.com/photo-1511578314322-379afb476865?w=400&h=300&fit=crop')">
+            <span class="event-badge new">新</span>
+            <span class="event-category">读书分享</span>
+          </div>
+          <div class="event-content">
+            <h3 class="event-title">《平凡的世界》读书分享会</h3>
+            <div class="event-meta">
+              <div class="event-meta-item">
+                <svg class="event-meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect>
+                  <line x1="16" x2="16" y1="2" y2="6"></line>
+                  <line x1="8" x2="8" y1="2" y2="6"></line>
+                  <line x1="3" x2="21" y1="10" y2="10"></line>
+                </svg>
+                <span>4月19日 周六 14:00</span>
+              </div>
+              <div class="event-meta-item">
+                <svg class="event-meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+                  <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+                <span>社区图书馆 · 文化艺术中心</span>
+              </div>
+            </div>
+            <div class="event-footer">
+              <div class="event-organizer">
+                <div class="event-organizer-avatar">李</div>
+                <span class="event-organizer-name">李老师</span>
+              </div>
+              <div class="event-stats">
+                <div class="event-stat">
+                  <span>18/20</span>
+                  <div class="progress-bar">
+                    <div class="progress-fill low" style="width: 90%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 活动卡片2 -->
+        <div class="event-card">
+          <div class="event-image" style="background-image: url('https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=400&h=300&fit=crop')">
+            <span class="event-badge hot">热</span>
+            <span class="event-category">运动健身</span>
+          </div>
+          <div class="event-content">
+            <h3 class="event-title">周末慢跑团 — 环湖跑活动</h3>
+            <div class="event-meta">
+              <div class="event-meta-item">
+                <svg class="event-meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect>
+                  <line x1="16" x2="16" y1="2" y2="6"></line>
+                  <line x1="8" x2="8" y1="2" y2="6"></line>
+                  <line x1="3" x2="21" y1="10" y2="10"></line>
+                </svg>
+                <span>4月20日 周日 07:00</span>
+              </div>
+              <div class="event-meta-item">
+                <svg class="event-meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+                  <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+                <span>南湖公园 · 东门集合</span>
+              </div>
+            </div>
+            <div class="event-footer">
+              <div class="event-organizer">
+                <div class="event-organizer-avatar" style="background: var(--accent-green-light); color: var(--accent-green);">张</div>
+                <span class="event-organizer-name">跑步达人</span>
+              </div>
+              <div class="event-stats">
+                <div class="event-stat">
+                  <span>32/50</span>
+                  <div class="progress-bar">
+                    <div class="progress-fill medium" style="width: 64%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 活动卡片3 -->
+        <div class="event-card">
+          <div class="event-image" style="background-image: url('https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=400&h=300&fit=crop')">
+            <span class="event-category">美食烹饪</span>
+          </div>
+          <div class="event-content">
+            <h3 class="event-title">家常菜分享 — 教你做地道的红烧肉</h3>
+            <div class="event-meta">
+              <div class="event-meta-item">
+                <svg class="event-meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect>
+                  <line x1="16" x2="16" y1="2" y2="6"></line>
+                  <line x1="8" x2="8" y1="2" y2="6"></line>
+                  <line x1="3" x2="21" y1="10" y2="10"></line>
+                </svg>
+                <span>4月19日 周六 10:00</span>
+              </div>
+              <div class="event-meta-item">
+                <svg class="event-meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+                  <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+                <span>社区活动中心 · 2楼厨房</span>
+              </div>
+            </div>
+            <div class="event-footer">
+              <div class="event-organizer">
+                <div class="event-organizer-avatar" style="background: var(--accent-orange-light); color: var(--accent-orange);">王</div>
+                <span class="event-organizer-name">王阿姨</span>
+              </div>
+              <div class="event-stats">
+                <div class="event-stat">
+                  <span>10/15</span>
+                  <div class="progress-bar">
+                    <div class="progress-fill low" style="width: 67%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 活动卡片4 -->
+        <div class="event-card">
+          <div class="event-image" style="background-image: url('https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=400&h=300&fit=crop')">
+            <span class="event-badge hot">热</span>
+            <span class="event-category">户外自然</span>
+          </div>
+          <div class="event-content">
+            <h3 class="event-title">亲子踏青 — 认识春天的植物</h3>
+            <div class="event-meta">
+              <div class="event-meta-item">
+                <svg class="event-meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect>
+                  <line x1="16" x2="16" y1="2" y2="6"></line>
+                  <line x1="8" x2="8" y1="2" y2="6"></line>
+                  <line x1="3" x2="21" y1="10" y2="10"></line>
+                </svg>
+                <span>4月20日 周日 09:00</span>
+              </div>
+              <div class="event-meta-item">
+                <svg class="event-meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+                  <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+                <span>植物园 · 正门集合</span>
+              </div>
+            </div>
+            <div class="event-footer">
+              <div class="event-organizer">
+                <div class="event-organizer-avatar" style="background: #F5E6FA; color: #9B59B6;">陈</div>
+                <span class="event-organizer-name">陈老师</span>
+              </div>
+              <div class="event-stats">
+                <div class="event-stat">
+                  <span>24/30</span>
+                  <div class="progress-bar">
+                    <div class="progress-fill low" style="width: 80%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 活动卡片5 -->
+        <div class="event-card">
+          <div class="event-image" style="background-image: url('https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&h=300&fit=crop')">
+            <span class="event-badge new">新</span>
+            <span class="event-category">音乐舞蹈</span>
+          </div>
+          <div class="event-content">
+            <h3 class="event-title">广场舞交流活动 — 拉丁舞入门</h3>
+            <div class="event-meta">
+              <div class="event-meta-item">
+                <svg class="event-meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect>
+                  <line x1="16" x2="16" y1="2" y2="6"></line>
+                  <line x1="8" x2="8" y1="2" y2="6"></line>
+                  <line x1="3" x2="21" y1="10" y2="10"></line>
+                </svg>
+                <span>4月21日 周一 19:00</span>
+              </div>
+              <div class="event-meta-item">
+                <svg class="event-meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+                  <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+                <span>社区广场 · 舞台区</span>
+              </div>
+            </div>
+            <div class="event-footer">
+              <div class="event-organizer">
+                <div class="event-organizer-avatar" style="background: #E8F4F8; color: #3498DB;">刘</div>
+                <span class="event-organizer-name">刘姐</span>
+              </div>
+              <div class="event-stats">
+                <div class="event-stat">
+                  <span>6/40</span>
+                  <div class="progress-bar">
+                    <div class="progress-fill low" style="width: 15%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 活动卡片6 -->
+        <div class="event-card">
+          <div class="event-image" style="background-image: url('https://images.unsplash.com/photo-1606503153255-59d8b8b82176?w=400&h=300&fit=crop')">
+            <span class="event-category">科技数码</span>
+          </div>
+          <div class="event-content">
+            <h3 class="event-title">手机摄影课 — 用手机拍出好照片</h3>
+            <div class="event-meta">
+              <div class="event-meta-item">
+                <svg class="event-meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect>
+                  <line x1="16" x2="16" y1="2" y2="6"></line>
+                  <line x1="8" x2="8" y1="2" y2="6"></line>
+                  <line x1="3" x2="21" y1="10" y2="10"></line>
+                </svg>
+                <span>4月22日 周二 14:00</span>
+              </div>
+              <div class="event-meta-item">
+                <svg class="event-meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+                  <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+                <span>社区活动中心 · 3楼会议室</span>
+              </div>
+            </div>
+            <div class="event-footer">
+              <div class="event-organizer">
+                <div class="event-organizer-avatar">周</div>
+                <span class="event-organizer-name">周同学</span>
+              </div>
+              <div class="event-stats">
+                <div class="event-stat">
+                  <span>15/25</span>
+                  <div class="progress-bar">
+                    <div class="progress-fill low" style="width: 60%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 公告 -->
+  <section class="section">
+    <div class="container">
+      <div class="notice-card">
+        <div class="notice-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3zm-8.27 4a2 2 0 0 1-3.46 0"></path>
+          </svg>
+        </div>
+        <div class="notice-content">
+          <h4>社区公告</h4>
+          <p>五一假期期间，社区图书馆开放时间调整为 9:00-17:00，5月1日-3日闭馆。请各位居民相互转告，合理安排借阅时间。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 热门组织 -->
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">活跃组织</h2>
+          <p class="section-subtitle">加入他们，一起玩</p>
+        </div>
+      </div>
+      
+      <div class="events-grid" style="grid-template-columns: repeat(4, 1fr);">
+        <div class="org-card">
+          <div class="org-avatar" style="background: linear-gradient(135deg, #E8F5EC, #C8E6D0);">🏃</div>
+          <h4>晨跑团</h4>
+          <p>168 成员</p>
+        </div>
+        <div class="org-card">
+          <div class="org-avatar" style="background: linear-gradient(135deg, #FFF3E0, #FFE0B2);">📚</div>
+          <h4>读书会</h4>
+          <p>92 成员</p>
+        </div>
+        <div class="org-card">
+          <div class="org-avatar" style="background: linear-gradient(135deg, #E3F2FD, #BBDEFB);">🎨</div>
+          <h4>手工坊</h4>
+          <p>56 成员</p>
+        </div>
+        <div class="org-card">
+          <div class="org-avatar" style="background: linear-gradient(135deg, #FCE4EC, #F8BBD9);">👶</div>
+          <h4>亲子社</h4>
+          <p>203 成员</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 页脚 -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <h3>邻里时光</h3>
+          <p>连接邻里，分享精彩。让每一个社区都充满温暖和活力。</p>
+        </div>
+        <div class="footer-links">
+          <h4>关于</h4>
+          <a href="#">关于我们</a>
+          <a href="#">使用帮助</a>
+          <a href="#">意见反馈</a>
+        </div>
+        <div class="footer-links">
+          <h4>活动</h4>
+          <a href="#">全部活动</a>
+          <a href="#">热门活动</a>
+          <a href="#">我的活动</a>
+        </div>
+        <div class="footer-links">
+          <h4>法律</h4>
+          <a href="#">用户协议</a>
+          <a href="#">隐私政策</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>© 2025 邻里时光 · 让社区更有温度</p>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

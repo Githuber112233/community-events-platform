@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
+  <!-- 外圆 - 社区感 -->
+  <circle cx="20" cy="20" r="18" stroke="#1d1d1f" stroke-width="1.5" fill="none"/>
+  <!-- 内部图形：三个圆点组成"人与人连接"的形状 -->
+  <!-- 中心人 -->
+  <circle cx="20" cy="14" r="3.5" fill="#1d1d1f"/>
+  <!-- 左侧人 -->
+  <circle cx="11" cy="22" r="2.8" fill="#1d1d1f" opacity="0.6"/>
+  <!-- 右侧人 -->
+  <circle cx="29" cy="22" r="2.8" fill="#1d1d1f" opacity="0.6"/>
+  <!-- 连接线 -->
+  <path d="M14.5 22.5 Q20 18 25.5 22.5" stroke="#1d1d1f" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <!-- 底部活动圆弧暗示"社区" -->
+  <path d="M10 30 Q20 26 30 30" stroke="#1d1d1f" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.4"/>
+</svg>
