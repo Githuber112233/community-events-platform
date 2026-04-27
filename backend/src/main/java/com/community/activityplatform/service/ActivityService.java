@@ -9,6 +9,7 @@ import com.community.activityplatform.entity.ActivityLike;
 import com.community.activityplatform.entity.ActivityParticipant;
 import com.community.activityplatform.entity.ActivityView;
 import com.community.activityplatform.entity.Interest;
+import com.community.activityplatform.entity.User;
 import com.community.activityplatform.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -40,13 +41,19 @@ public class ActivityService {
      */
     @Transactional
     public Result<ActivityDTO> createActivity(Long creatorId, ActivityDTO activityDTO) {
-        // 新创建的活动直接设为 RECRUITING 状态（跳过审核流程）
+        // 获取创建者，判断是否为管理员
+        User creator = userRepository.findById(creatorId).orElse(null);
+        Activity.ActivityStatus initialStatus =
+                (creator != null && creator.getRole() == User.UserRole.ADMIN)
+                        ? Activity.ActivityStatus.RECRUITING   // 管理员直接通过
+                        : Activity.ActivityStatus.PENDING;   // 普通用户需审核
+
         Activity activity = Activity.builder()
                 .title(activityDTO.getTitle())
                 .description(activityDTO.getDescription())
                 .content(activityDTO.getContent())
                 .coverImage(activityDTO.getCoverImage())
-                .creator(userRepository.findById(creatorId).orElse(null))
+                .creator(creator)
                 .province(activityDTO.getProvince())
                 .city(activityDTO.getCity())
                 .district(activityDTO.getDistrict())
@@ -58,7 +65,7 @@ public class ActivityService {
                 .registrationDeadline(activityDTO.getRegistrationDeadline())
                 .maxParticipants(activityDTO.getMaxParticipants() != null ? activityDTO.getMaxParticipants() : 100)
                 .currentParticipants(0)
-                .status(Activity.ActivityStatus.RECRUITING)
+                .status(initialStatus)
                 .viewCount(0)
                 .likeCount(0)
                 .commentCount(0)

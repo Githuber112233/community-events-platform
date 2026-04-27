@@ -24,6 +24,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -48,67 +49,109 @@ public class RecommendationService {
     private final InterestRepository interestRepository;
     private final RedisTemplate<String, Object> redisTemplate;
 
-    @Value("${recommendation.cf-enable-threshold:5}")
+    @Value("${recommendation.cf-enable-threshold:20}")
     private Integer cfEnableThreshold;
 
-    @Value("${recommendation.top-k-users:20}")
+    @Value("${recommendation.top-k-users:30}")
     private Integer topKUsers;
 
     @Value("${recommendation.top-n-activities:10}")
     private Integer topNActivities;
 
-    @Value("${recommendation.time-decay-factor:0.01}")
+    @Value("${recommendation.time-decay-factor:0.005}")
     private Double timeDecayFactor;
 
-    @Value("${recommendation.cache-ttl:1800}")
+    @Value("${recommendation.cache-ttl:3600}")
     private Long cacheTtl;
+
+    @Value("${recommendation.cb-tag-weight:0.75}")
+    private Double cbTagWeight;
+
+    @Value("${recommendation.cb-quality-weight:0.25}")
+    private Double cbQualityWeight;
+
+    // 用户行为反馈权重（用于兴趣标签动态更新）
+    private static final double FEEDBACK_PARTICIPATE = 0.1;
+    private static final double FEEDBACK_LIKE = 0.05;
+    private static final double FEEDBACK_VIEW = 0.01;
+
+    // User-CF 采样上限（用户量大时随机采样避免O(n²)爆炸）
+    private static final int USER_SAMPLE_SIZE = 100;
 
     /**
      * 为用户推荐活动
      */
+    @Transactional
     public Result<Page<ActivityDTO>> recommendActivities(Long userId, Integer page, Integer size) {
+        log.info("开始获取推荐活动，用户ID: {}, page: {}, size: {}", userId, page, size);
         String cacheKey = "recommend:user:" + userId + ":page:" + page;
 
         // 尝试从缓存获取
-        @SuppressWarnings("unchecked")
-        List<ActivityDTO> cachedResult = (List<ActivityDTO>) redisTemplate.opsForValue().get(cacheKey);
-        if (cachedResult != null) {
-            Pageable pageable = PageRequest.of(page, size);
-            return Result.success(new PageImpl<>(cachedResult, pageable, cachedResult.size()));
+        try {
+            @SuppressWarnings("unchecked")
+            List<ActivityDTO> cachedResult = (List<ActivityDTO>) redisTemplate.opsForValue().get(cacheKey);
+            if (cachedResult != null) {
+                log.info("从缓存获取推荐成功，数量: {}", cachedResult.size());
+                Pageable pageable = PageRequest.of(page, size);
+                return Result.success(new PageImpl<>(cachedResult, pageable, cachedResult.size()));
+            }
+        } catch (Exception e) {
+            log.warn("Redis缓存获取失败，继续计算推荐: {}", e.getMessage());
         }
 
-        // 获取用户已参与和已浏览的活动
+        // 获取用户已排除的活动ID（已参与、已点赞等）
         Set<Long> excludedActivityIds = getExcludedActivityIds(userId);
+        log.info("用户已排除的活动ID数量: {}", excludedActivityIds.size());
 
-        // 获取用户行为数据,决定使用何种推荐策略
-        int userBehaviorCount = getUserBehaviorCount(userId);
-
+        // 使用混合推荐算法：Content-Based + User-CF
+        log.info("开始执行混合推荐算法");
         List<Activity> recommendedActivities;
-
-        if (userBehaviorCount < cfEnableThreshold) {
-            // 行为数据少,使用基于内容的推荐
-            log.info("用户 {} 行为数据不足,使用基于内容的推荐", userId);
-            recommendedActivities = contentBasedRecommendation(userId, excludedActivityIds);
-        } else {
-            // 行为数据充足,使用混合推荐
-            log.info("用户 {} 行为数据充足,使用混合推荐", userId);
+        try {
             recommendedActivities = hybridRecommendation(userId, excludedActivityIds);
+            log.info("混合推荐算法返回 {} 个活动", recommendedActivities.size());
+        } catch (Exception e) {
+            log.error("混合推荐算法执行失败: {}", e.getMessage(), e);
+            // 兜底：返回热门活动
+            log.info("使用热门活动作为兜底");
+            recommendedActivities = activityRepository
+                    .findByStatusAndStartTimeAfterOrderByViewCountDescLikeCountDesc(
+                            Activity.ActivityStatus.RECRUITING, LocalDateTime.now(), PageRequest.of(0, topNActivities))
+                    .getContent();
+            if (recommendedActivities.isEmpty()) {
+                recommendedActivities = activityRepository
+                        .findByStatusAndStartTimeAfter(
+                                Activity.ActivityStatus.RECRUITING, LocalDateTime.now(), PageRequest.of(0, topNActivities))
+                        .getContent();
+            }
         }
+
+        // 过滤掉已过期的活动
+        recommendedActivities = recommendedActivities.stream()
+                .filter(a -> a.getStartTime().isAfter(LocalDateTime.now()))
+                .collect(Collectors.toList());
+
+        log.info("过滤后有 {} 个推荐活动", recommendedActivities.size());
 
         // 转换为DTO
+        log.info("开始转换DTO");
         List<ActivityDTO> activityDTOs = recommendedActivities.stream()
                 .limit(topNActivities)
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
+        log.info("DTO转换完成，数量: {}", activityDTOs.size());
 
-        // 缓存结果
-        redisTemplate.opsForValue().set(cacheKey, activityDTOs, cacheTtl, TimeUnit.SECONDS);
+        // 缓存结果（失败不影响返回）
+        try {
+            redisTemplate.opsForValue().set(cacheKey, activityDTOs, cacheTtl, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.warn("Redis缓存设置失败: {}", e.getMessage());
+        }
 
         // 分页
         Pageable pageable = PageRequest.of(page, size);
         int start = (int) pageable.getOffset();
         int end = Math.min(start + size, activityDTOs.size());
-        List<ActivityDTO> pageContent = activityDTOs.subList(start, end);
+        List<ActivityDTO> pageContent = start < activityDTOs.size() ? activityDTOs.subList(start, end) : Collections.emptyList();
         Page<ActivityDTO> resultPage = new PageImpl<>(pageContent, pageable, activityDTOs.size());
 
         return Result.success(resultPage);
@@ -116,7 +159,7 @@ public class RecommendationService {
 
     /**
      * 基于内容的推荐(Content-Based)
-     * 根据用户兴趣标签推荐相似活动
+     * 综合标签相似度 + 活动质量分 + 时间衰减
      */
     private List<Activity> contentBasedRecommendation(Long userId, Set<Long> excludedActivityIds) {
         // 获取用户兴趣标签
@@ -127,7 +170,6 @@ public class RecommendationService {
                     .findByStatusAndStartTimeAfterOrderByViewCountDescLikeCountDesc(
                             Activity.ActivityStatus.RECRUITING, LocalDateTime.now(), PageRequest.of(0, topNActivities))
                     .getContent();
-            // 如果热门招募活动为空，返回所有正在招募的活动
             if (popularActivities.isEmpty()) {
                 popularActivities = activityRepository
                         .findByStatusAndStartTimeAfter(
@@ -140,7 +182,6 @@ public class RecommendationService {
         // 构建用户兴趣向量
         Map<Long, Double> userInterestVector = new HashMap<>();
         for (UserInterest ui : userInterests) {
-            // 权重 = (点击数 * 0.3 + 参与数 * 0.7) * 标签权重
             double weight = (ui.getClickCount() * 0.3 + ui.getParticipateCount() * 0.7) * ui.getWeight();
             userInterestVector.put(ui.getInterest().getId(), weight);
         }
@@ -150,31 +191,48 @@ public class RecommendationService {
                 Activity.ActivityStatus.RECRUITING, LocalDateTime.now(), PageRequest.of(0, 1000))
                 .getContent();
 
-        // 计算每个活动与用户的相似度
+        // 计算全局最大值（用于归一化质量分）
+        double maxLikeCount = allActivities.stream()
+                .mapToDouble(a -> a.getLikeCount() != null ? a.getLikeCount() : 0)
+                .max().orElse(1.0);
+        double maxCommentCount = allActivities.stream()
+                .mapToDouble(a -> a.getCommentCount() != null ? a.getCommentCount() : 0)
+                .max().orElse(1.0);
+        double maxViewCount = allActivities.stream()
+                .mapToDouble(a -> a.getViewCount() != null ? a.getViewCount() : 0)
+                .max().orElse(1.0);
+
+        // 计算每个活动的综合评分
         Map<Activity, Double> activityScores = new HashMap<>();
         for (Activity activity : allActivities) {
             if (excludedActivityIds.contains(activity.getId())) {
                 continue;
             }
 
-            // 构建活动兴趣向量
+            // ① 标签相似度
             Map<Long, Double> activityInterestVector = new HashMap<>();
             for (Interest interest : activity.getInterests()) {
                 activityInterestVector.put(interest.getId(), 1.0);
             }
+            double tagScore = calculateCosineSimilarity(userInterestVector, activityInterestVector);
 
-            // 计算余弦相似度
-            double similarity = calculateCosineSimilarity(userInterestVector, activityInterestVector);
+            // ② 活动质量分（归一化到[0,1]）
+            double likeNorm = (activity.getLikeCount() != null ? activity.getLikeCount() : 0) / maxLikeCount;
+            double commentNorm = (activity.getCommentCount() != null ? activity.getCommentCount() : 0) / maxCommentCount;
+            double viewNorm = (activity.getViewCount() != null ? activity.getViewCount() : 0) / maxViewCount;
+            double qualityScore = likeNorm * 0.5 + commentNorm * 0.3 + viewNorm * 0.2;
 
-            // 考虑时间衰减因子
+            // ③ 综合CB评分 = α * 标签分 + (1-α) * 质量分
+            double combinedCB = cbTagWeight * tagScore + cbQualityWeight * qualityScore;
+
+            // ④ 时间衰减
             double timeDecay = calculateTimeDecay(activity.getStartTime());
 
-            // 综合评分 = 相似度 * 时间衰减
-            double finalScore = similarity * timeDecay;
+            // 最终评分 = CB综合分 × 时间衰减
+            double finalScore = combinedCB * timeDecay;
             activityScores.put(activity, finalScore);
         }
 
-        // 按评分排序返回
         return activityScores.entrySet().stream()
                 .sorted(Map.Entry.<Activity, Double>comparingByValue().reversed())
                 .map(Map.Entry::getKey)
@@ -183,41 +241,46 @@ public class RecommendationService {
 
     /**
      * 混合推荐(Content-Based + User-CF)
+     * 使用置信度加权融合，避免数据稀疏时CF引入噪声
      */
     private List<Activity> hybridRecommendation(Long userId, Set<Long> excludedActivityIds) {
-        // 1. 基于内容的推荐分数
+        // 1. 基于内容的推荐分数（归一化到[0,1]）
         Map<Activity, Double> contentScores = new HashMap<>();
         List<Activity> contentActivities = contentBasedRecommendation(userId, excludedActivityIds);
         for (int i = 0; i < contentActivities.size(); i++) {
-            // 归一化分数 (排名越高分数越高)
-            double score = 1.0 - (double) i / contentActivities.size();
+            double score = 1.0 - (double) i / Math.max(contentActivities.size(), 1);
             contentScores.put(contentActivities.get(i), score);
         }
 
-        // 2. 基于用户的协同过滤推荐分数
+        // 2. User-CF 推荐分数
         Map<Activity, Double> cfScores = userCollaborativeFiltering(userId, excludedActivityIds);
+        // 归一化 CF 分数
+        double maxCfScore = cfScores.values().stream().mapToDouble(Double::doubleValue).max().orElse(1.0);
+        if (maxCfScore > 0) {
+            cfScores.replaceAll((k, v) -> v / maxCfScore);
+        }
 
-        // 3. 动态融合两种推荐算法
-        // 根据用户行为数据量动态调整权重
+        // 3. 置信度加权融合
+        // CF置信度：行为数据越多，CF越可靠；最低权重0，最高0.6
         int userBehaviorCount = getUserBehaviorCount(userId);
-        double cfWeight = Math.min(1.0, (double) userBehaviorCount / (cfEnableThreshold * 2));
-        double contentWeight = 1.0 - cfWeight;
+        double cfConfidence = Math.min(1.0, (double) userBehaviorCount / (cfEnableThreshold * 5.0));
+        double cbWeight = 1.0 - cfConfidence * 0.6;   // CB最低占40%
+        double cfWeight = cfConfidence * 0.6;          // CF最高占60%
+
+        log.info("混合推荐权重 - CB: {:.2f}, CF: {:.2f} (置信度: {:.2f}, 行为数: {})",
+                cbWeight, cfWeight, cfConfidence, userBehaviorCount);
 
         Map<Activity, Double> finalScores = new HashMap<>();
 
-        // 融合Content-Based结果
         for (Map.Entry<Activity, Double> entry : contentScores.entrySet()) {
-            finalScores.put(entry.getKey(), entry.getValue() * contentWeight);
+            finalScores.put(entry.getKey(), entry.getValue() * cbWeight);
         }
-
-        // 融合User-CF结果
         for (Map.Entry<Activity, Double> entry : cfScores.entrySet()) {
             Activity activity = entry.getKey();
             double score = entry.getValue() * cfWeight;
             finalScores.put(activity, finalScores.getOrDefault(activity, 0.0) + score);
         }
 
-        // 按最终分数排序
         return finalScores.entrySet().stream()
                 .sorted(Map.Entry.<Activity, Double>comparingByValue().reversed())
                 .map(Map.Entry::getKey)
@@ -226,27 +289,32 @@ public class RecommendationService {
 
     /**
      * 基于用户的协同过滤(User-CF)
-     * 找到相似用户,推荐他们参与的活动
+     * 使用杰卡德系数计算用户相似度，支持采样优化
      */
     private Map<Activity, Double> userCollaborativeFiltering(Long userId, Set<Long> excludedActivityIds) {
-        // 获取目标用户参与的活动
-        List<ActivityParticipant> userParticipations = participantRepository.findByUserId(userId, PageRequest.of(0, 100))
+        // 获取目标用户参与的活动ID集合
+        List<ActivityParticipant> userParticipations = participantRepository.findByUserId(userId, PageRequest.of(0, 200))
                 .getContent();
         Set<Long> userActivityIds = userParticipations.stream()
                 .map(p -> p.getActivity().getId())
                 .collect(Collectors.toSet());
 
-        // 获取所有用户
-        List<com.community.activityplatform.entity.User> allUsers = userRepository.findAll();
+        // 获取所有用户（带采样优化）
+        List<com.community.activityplatform.entity.User> allUsers = new ArrayList<>(userRepository.findAll());
 
-        // 计算用户相似度
+        // 采样优化：用户量超过阈值时随机采样
+        if (allUsers.size() > USER_SAMPLE_SIZE) {
+            Collections.shuffle(allUsers);
+            allUsers = new ArrayList<>(allUsers.subList(0, USER_SAMPLE_SIZE));
+        }
+
+        // 计算用户相似度（杰卡德系数：共同参与活动数 / 并集活动数）
         Map<Long, Double> userSimilarities = new HashMap<>();
         for (com.community.activityplatform.entity.User otherUser : allUsers) {
             if (otherUser.getId().equals(userId)) {
                 continue;
             }
-
-            double similarity = calculateUserSimilarity(userId, otherUser.getId());
+            double similarity = calculateJaccardSimilarity(userId, otherUser.getId());
             if (similarity > 0) {
                 userSimilarities.put(otherUser.getId(), similarity);
             }
@@ -259,34 +327,24 @@ public class RecommendationService {
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toList());
 
-        // 获取相似用户参与的活动
+        // 获取相似用户参与的活动，计算推荐分
         Map<Activity, Double> recommendedScores = new HashMap<>();
         for (Long similarUserId : similarUserIds) {
-            List<ActivityParticipant> similarUserParticipations = participantRepository
+            List<ActivityParticipant> similarParticipations = participantRepository
                     .findByUserId(similarUserId, PageRequest.of(0, 100))
                     .getContent();
 
-            for (ActivityParticipant participation : similarUserParticipations) {
+            for (ActivityParticipant participation : similarParticipations) {
                 Activity activity = participation.getActivity();
 
-                // 排除已参与的活动
                 if (userActivityIds.contains(activity.getId()) || excludedActivityIds.contains(activity.getId())) {
                     continue;
                 }
-
-                // 排除已结束的活动
                 if (activity.getStartTime().isBefore(LocalDateTime.now())) {
                     continue;
                 }
 
-                // 评分 = 用户相似度 * 参与状态权重
-                double statusWeight = 1.0;
-                if (participation.getStatus() == ParticipantStatus.APPROVED) {
-                    statusWeight = 1.0;
-                } else if (participation.getStatus() == ParticipantStatus.CHECKED_IN) {
-                    statusWeight = 1.2;
-                }
-
+                double statusWeight = participation.getStatus() == ParticipantStatus.CHECKED_IN ? 1.2 : 1.0;
                 double score = userSimilarities.get(similarUserId) * statusWeight;
                 recommendedScores.merge(activity, score, Double::sum);
             }
@@ -296,29 +354,44 @@ public class RecommendationService {
     }
 
     /**
-     * 计算用户相似度(基于参与活动的兴趣标签重叠度)
+     * 计算用户杰卡德相似度（基于参与活动的重叠度）
+     * Jaccard = |A ∩ B| / |A ∪ B|
      */
-    private double calculateUserSimilarity(Long userId1, Long userId2) {
-        List<UserInterest> interests1 = userInterestRepository.findByUserId(userId1);
-        List<UserInterest> interests2 = userInterestRepository.findByUserId(userId2);
+    private double calculateJaccardSimilarity(Long userId1, Long userId2) {
+        Set<Long> acts1 = participantRepository.findByUserId(userId1, PageRequest.of(0, 200)).getContent()
+                .stream().map(p -> p.getActivity().getId()).collect(Collectors.toSet());
+        Set<Long> acts2 = participantRepository.findByUserId(userId2, PageRequest.of(0, 200)).getContent()
+                .stream().map(p -> p.getActivity().getId()).collect(Collectors.toSet());
 
-        if (interests1.isEmpty() || interests2.isEmpty()) {
-            return 0.0;
+        if (acts1.isEmpty() && acts2.isEmpty()) {
+            // 若均无数数据，基于兴趣标签计算杰卡德相似度作为兜底
+            return calculateInterestJaccardSimilarity(userId1, userId2);
         }
 
-        // 构建兴趣向量
-        Map<Long, Double> vector1 = new HashMap<>();
-        Map<Long, Double> vector2 = new HashMap<>();
+        Set<Long> intersection = acts1.stream()
+                .filter(acts2::contains)
+                .collect(Collectors.toSet());
 
-        for (UserInterest ui : interests1) {
-            vector1.put(ui.getInterest().getId(), (double) ui.getParticipateCount());
-        }
+        Set<Long> union = new HashSet<>(acts1);
+        union.addAll(acts2);
 
-        for (UserInterest ui : interests2) {
-            vector2.put(ui.getInterest().getId(), (double) ui.getParticipateCount());
-        }
+        return union.isEmpty() ? 0.0 : (double) intersection.size() / union.size();
+    }
 
-        return calculateCosineSimilarity(vector1, vector2);
+    /**
+     * 基于兴趣标签的杰卡德相似度（备用方案）
+     */
+    private double calculateInterestJaccardSimilarity(Long userId1, Long userId2) {
+        Set<Long> ints1 = userInterestRepository.findByUserId(userId1).stream()
+                .map(ui -> ui.getInterest().getId()).collect(Collectors.toSet());
+        Set<Long> ints2 = userInterestRepository.findByUserId(userId2).stream()
+                .map(ui -> ui.getInterest().getId()).collect(Collectors.toSet());
+
+        Set<Long> intersection = ints1.stream().filter(ints2::contains).collect(Collectors.toSet());
+        Set<Long> union = new HashSet<>(ints1);
+        union.addAll(ints2);
+
+        return union.isEmpty() ? 0.0 : (double) intersection.size() / union.size();
     }
 
     /**
@@ -395,6 +468,9 @@ public class RecommendationService {
      * 获取用户行为数量(参与 + 浏览)
      */
     private int getUserBehaviorCount(Long userId) {
+        if (userId == null) {
+            return 0;
+        }
         int participateCount = (int) participantRepository.findByUserId(userId, PageRequest.of(0, 1000))
                 .getTotalElements();
 
@@ -410,6 +486,62 @@ public class RecommendationService {
     public void clearRecommendationCache(Long userId) {
         String pattern = "recommend:user:" + userId + ":*";
         redisTemplate.delete(redisTemplate.keys(pattern));
+    }
+
+    /**
+     * 用户行为反馈：动态更新兴趣标签权重
+     * @param userId    用户ID
+     * @param activityId 活动ID
+     * @param actionType 行为类型：participate/like/view
+     */
+    public void updateInterestFeedback(Long userId, Long activityId, String actionType) {
+        Activity activity = activityRepository.findById(activityId).orElse(null);
+        if (activity == null || activity.getInterests() == null) {
+            return;
+        }
+
+        double feedbackWeight;
+        switch (actionType.toLowerCase()) {
+            case "participate":
+                feedbackWeight = FEEDBACK_PARTICIPATE;
+                break;
+            case "like":
+                feedbackWeight = FEEDBACK_LIKE;
+                break;
+            case "view":
+                feedbackWeight = FEEDBACK_VIEW;
+                break;
+            default:
+                return;
+        }
+
+        for (Interest interest : activity.getInterests()) {
+            UserInterest userInterest = userInterestRepository
+                    .findByUserIdAndInterestId(userId, interest.getId())
+                    .orElse(null);
+
+            if (userInterest != null) {
+                // 动态增加权重（参与/点赞/浏览对不同兴趣标签的贡献）
+                int baseCount = "participate".equals(actionType.toLowerCase())
+                        ? userInterest.getParticipateCount()
+                        : userInterest.getClickCount();
+                userInterest.setWeight(userInterest.getWeight() + (int) (feedbackWeight * (baseCount + 1)));
+                userInterestRepository.save(userInterest);
+            } else {
+                // 首次接触该兴趣标签，创建记录
+                UserInterest newUi = UserInterest.builder()
+                        .user(userRepository.findById(userId).orElse(null))
+                        .interest(interest)
+                        .weight(1)
+                        .clickCount(actionType.equalsIgnoreCase("participate") ? 0 : 1)
+                        .participateCount(actionType.equalsIgnoreCase("participate") ? 1 : 0)
+                        .build();
+                userInterestRepository.save(newUi);
+            }
+        }
+
+        // 清除推荐缓存，使用户下次获取推荐时反映最新偏好
+        clearRecommendationCache(userId);
     }
 
     /**

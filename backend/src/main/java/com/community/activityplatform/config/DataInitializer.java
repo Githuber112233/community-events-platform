@@ -4,9 +4,11 @@ import com.community.activityplatform.entity.Activity;
 import com.community.activityplatform.entity.ActivityParticipant;
 import com.community.activityplatform.entity.Interest;
 import com.community.activityplatform.entity.User;
+import com.community.activityplatform.entity.UserInterest;
 import com.community.activityplatform.repository.ActivityParticipantRepository;
 import com.community.activityplatform.repository.ActivityRepository;
 import com.community.activityplatform.repository.InterestRepository;
+import com.community.activityplatform.repository.UserInterestRepository;
 import com.community.activityplatform.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +33,7 @@ public class DataInitializer implements CommandLineRunner {
     private final ActivityRepository activityRepository;
     private final ActivityParticipantRepository participantRepository;
     private final InterestRepository interestRepository;
+    private final UserInterestRepository userInterestRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -452,30 +455,15 @@ public class DataInitializer implements CommandLineRunner {
         a30 = activityRepository.save(a30);
 
         // ============================================================
-        // 初始化参与者记录（少量模拟，体现真实性）
+        // 初始化用户兴趣标签（模拟用户选择兴趣的过程）
         // ============================================================
-        List<Activity> allActivities = new ArrayList<>();
-        for (long i = 1; i <= 30; i++) {
-            activityRepository.findById(i).ifPresent(allActivities::add);
-        }
+        initUserInterests(user1, user2, user3, user4, user5, admin,
+                sports, culture, tech, social, outdoor, volunteer);
 
-        User[] users = {user1, user2, user3, user4, user5, admin};
-        for (int i = 0; i < allActivities.size(); i++) {
-            Activity act = allActivities.get(i);
-            // 每条活动分配1-3个参与者
-            for (int j = 0; j <= i % 3; j++) {
-                User u = users[(i + j) % users.length];
-                if (!participantRepository.existsByUser_IdAndActivity_Id(u.getId(), act.getId())) {
-                    ActivityParticipant p = ActivityParticipant.builder()
-                            .user(u)
-                            .activity(act)
-                            .status(ActivityParticipant.ParticipantStatus.APPROVED)
-                            .createdAt(now.minusDays(i % 5 + 1))
-                            .build();
-                    participantRepository.save(p);
-                }
-            }
-        }
+        // ============================================================
+        // 初始化参与者记录（每个用户参与10-15个活动，供User-CF使用）
+        // ============================================================
+        initParticipations(user1, user2, user3, user4, user5, admin, sports, culture, tech, social, outdoor, volunteer, now);
 
         log.info("测试数据初始化完成！共创建 {} 个用户和 {} 个活动", userRepository.count(), activityRepository.count());
         log.info("- 管理员账号: admin / admin123");
@@ -485,6 +473,131 @@ public class DataInitializer implements CommandLineRunner {
     // ============================================================
     // 辅助方法
     // ============================================================
+
+    /**
+     * 初始化用户兴趣标签
+     * 每个用户分配2-3个兴趣标签，用户间有重叠以便User-CF找到相似用户
+     */
+    private void initUserInterests(User u1, User u2, User u3, User u4, User u5, User admin,
+                                   Interest sports, Interest culture, Interest tech,
+                                   Interest social, Interest outdoor, Interest volunteer) {
+        // 避免重复初始化
+        if (userInterestRepository.count() > 0) {
+            return;
+        }
+
+        // 用户兴趣配置：(用户, 兴趣标签列表, 参与次数权重, 点击次数权重)
+        // 权重设计：主要兴趣 participateCount=8, clickCount=15；次要兴趣 participateCount=3, clickCount=8
+        record UserInterestConfig(User user, Interest primary, Interest secondary, Interest tertiary) {}
+
+        List<UserInterestConfig> configs = List.of(
+            // zhangsan：体育健身(主) + 户外探险(主) + 社交聚会(次)
+            new UserInterestConfig(u1, sports, outdoor, social),
+            // lisi：文化艺术(主) + 科技学习(主) + 社交聚会(次)
+            new UserInterestConfig(u2, culture, tech, social),
+            // wangwu：体育健身(主) + 志愿服务(主) + 社交聚会(次)
+            new UserInterestConfig(u3, sports, volunteer, social),
+            // zhaoliu：科技学习(主) + 文化艺术(主) + 户外探险(次)
+            new UserInterestConfig(u4, tech, culture, outdoor),
+            // sunqi：户外探险(主) + 志愿服务(主) + 文化艺术(次)
+            new UserInterestConfig(u5, outdoor, volunteer, culture)
+        );
+
+        for (UserInterestConfig cfg : configs) {
+            // 主要兴趣1
+            saveUserInterest(cfg.user(), cfg.primary(), 8, 15);
+            // 主要兴趣2
+            saveUserInterest(cfg.user(), cfg.secondary(), 8, 15);
+            // 次要兴趣（可能为null）
+            if (cfg.tertiary() != null) {
+                saveUserInterest(cfg.user(), cfg.tertiary(), 3, 8);
+            }
+        }
+
+        log.info("用户兴趣标签初始化完成，共 {} 条记录", userInterestRepository.count());
+    }
+
+    private void saveUserInterest(User user, Interest interest, int participateCount, int clickCount) {
+        if (userInterestRepository.findByUserIdAndInterestId(user.getId(), interest.getId()).isEmpty()) {
+            UserInterest ui = UserInterest.builder()
+                    .user(user)
+                    .interest(interest)
+                    .weight(1)
+                    .participateCount(participateCount)
+                    .clickCount(clickCount)
+                    .build();
+            userInterestRepository.save(ui);
+        }
+    }
+
+    /**
+     * 初始化参与者记录
+     * 每个用户参与10-15个活动，且用户间有活动重叠（以便User-CF计算相似度）
+     */
+    private void initParticipations(User u1, User u2, User u3, User u4, User u5, User admin,
+                                    Interest sports, Interest culture, Interest tech,
+                                    Interest social, Interest outdoor, Interest volunteer,
+                                    LocalDateTime now) {
+        // 避免重复初始化
+        if (participantRepository.count() > 0) {
+            return;
+        }
+
+        // 按兴趣分类活动（根据DataInitializer中创建顺序）
+        // a1-a5: sports, a6-a10: culture, a11-a15: tech
+        // a16-a20: social, a21-a25: outdoor, a26-a28: volunteer
+        Long[] sportsIds    = {1L, 2L, 3L, 4L, 5L};
+        Long[] cultureIds   = {6L, 7L, 8L, 9L, 10L};
+        Long[] techIds      = {11L, 12L, 13L, 14L, 15L};
+        Long[] socialIds    = {16L, 17L, 18L, 19L, 20L};
+        Long[] outdoorIds   = {21L, 22L, 23L, 24L, 25L};
+        Long[] volunteerIds = {26L, 27L, 28L};
+
+        // 用户参与活动映射（每个用户10-15个，且用户间有明显重叠）
+        // zhangsan: 体育5 + 户外5 + 社交3 = 13个
+        saveParticipations(u1, concat(sportsIds, outdoorIds, socialIds), now);
+        // lisi: 文化5 + 科技5 + 社交4 = 14个
+        saveParticipations(u2, concat(cultureIds, techIds, socialIds), now);
+        // wangwu: 体育5 + 志愿3 + 社交4 = 12个
+        saveParticipations(u3, concat(sportsIds, volunteerIds, socialIds), now);
+        // zhaoliu: 科技5 + 文化5 + 户外3 = 13个
+        saveParticipations(u4, concat(techIds, cultureIds, outdoorIds), now);
+        // sunqi: 户外5 + 志愿3 + 文化3 = 11个
+        saveParticipations(u5, concat(outdoorIds, volunteerIds, cultureIds), now);
+
+        // 管理员少量参与（体现平台活跃）
+        saveParticipations(admin, new Long[]{1L, 6L, 11L, 16L, 21L, 26L}, now);
+
+        log.info("参与者记录初始化完成，共 {} 条记录", participantRepository.count());
+    }
+
+    private void saveParticipations(User user, Long[] activityIds, LocalDateTime now) {
+        for (int i = 0; i < activityIds.length; i++) {
+            Long actId = activityIds[i];
+            if (participantRepository.existsByUser_IdAndActivity_Id(user.getId(), actId)) {
+                continue;
+            }
+            Activity activity = activityRepository.findById(actId).orElse(null);
+            if (activity == null) continue;
+
+            ActivityParticipant p = ActivityParticipant.builder()
+                    .user(user)
+                    .activity(activity)
+                    .status(ActivityParticipant.ParticipantStatus.APPROVED)
+                    .createdAt(now.minusDays(i % 7 + 1))
+                    .build();
+            participantRepository.save(p);
+        }
+    }
+
+    private Long[] concat(Long[] a, Long[] b, Long[] c) {
+        Long[] result = new Long[a.length + b.length + c.length];
+        System.arraycopy(a, 0, result, 0, a.length);
+        System.arraycopy(b, 0, result, a.length, b.length);
+        System.arraycopy(c, 0, result, a.length + b.length, c.length);
+        return result;
+    }
+
     private Activity buildActivity(String title, String category, String description,
                                    String coverImage, String province, String city, String district,
                                    String address, String lat, String lng,

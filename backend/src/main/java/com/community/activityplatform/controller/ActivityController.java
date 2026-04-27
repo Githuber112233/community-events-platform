@@ -157,8 +157,9 @@ public class ActivityController {
             @RequestHeader(value = "Authorization", required = false) String token,
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "10") Integer size) {
-        Long userId = token != null ? extractUserIdFromToken(token) : null;
-        return recommendationService.recommendActivities(userId, page, size);
+        // 直接返回热门活动作为推荐（临时方案）
+        Pageable pageable = PageRequest.of(page, size);
+        return activityService.getPopularActivities(pageable, null);
     }
 
     /**

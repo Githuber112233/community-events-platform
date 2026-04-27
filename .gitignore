@@ -1,0 +1,44 @@
+# Java / Maven
+backend/target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+
+# Node / Vite
+node_modules/
+dist/
+*.local
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+dev-err.txt
+dev-log.txt
+*.log
+
+# 工作目录
+.workbuddy/
+
+# 论文相关（可选，看你需要保留哪些）
+# archive/
+# docs/
+# thesis_content.txt
+# gen_eval_table.py
+# read_docx.py
+# UI_设计分析报告.md

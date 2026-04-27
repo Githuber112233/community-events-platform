@@ -33,7 +33,8 @@
             </p>
           </div>
           <div class="modal-footer">
-            <button class="skip-btn" @click="handleSkip">先跳过</button>
+            <button v-if="!mandatory" class="skip-btn" @click="handleSkip">先跳过</button>
+            <div v-else class="skip-hint">请选择至少3个兴趣标签</div>
             <button
               class="confirm-btn"
               :disabled="selectedIds.length < 3"
@@ -60,6 +61,7 @@ interface Interest {
 
 const props = defineProps<{
   visible: boolean
+  mandatory?: boolean  // 是否强制选择（不允许跳过）
 }>()
 
 const emit = defineEmits<{
@@ -236,6 +238,11 @@ onMounted(() => {
   transition: all 0.2s;
 }
 .skip-btn:hover { background: #f5f5f5; color: #333; }
+.skip-hint {
+  font-size: 0.85rem;
+  color: #d4af37;
+  font-weight: 500;
+}
 .confirm-btn {
   padding: 12px 28px;
   background: linear-gradient(135deg, #d4af37, #c9a227);

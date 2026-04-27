@@ -62,11 +62,14 @@ upload:
 
 # 推荐算法配置
 recommendation:
-  cf-enable-threshold: 5
-  top-k-users: 20
+  cf-enable-threshold: 20          # 提高CF触发门槛，避免数据稀疏时引入噪声
+  top-k-users: 30                  # Top-30 相似用户
   top-n-activities: 10
-  time-decay-factor: 0.01
-  cache-ttl: 1800
+  time-decay-factor: 0.005        # 调整衰减速度，更平缓
+  cache-ttl: 3600                  # 缓存1小时
+  # CB模块权重配置
+  cb-tag-weight: 0.75              # 标签相似度权重
+  cb-quality-weight: 0.25          # 活动质量分权重
 
 logging:
   level:

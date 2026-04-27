@@ -161,7 +161,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
-import { activityApi, categories, type Activity } from '../utils/mockData'
+import { activityApi, categories, loadCategories, type Activity } from '../utils/mockData'
 import CategoryCard from '../components/CategoryCard.vue'
 import EventCard from '../components/EventCard.vue'
 import RecommendationWheel from '../components/RecommendationWheel.vue'
@@ -241,6 +241,9 @@ const initReveal = () => {
 
 onMounted(async () => {
   initReveal()
+
+  // 加载分类数据
+  loadCategories()
 
   // 获取热门活动
   try {
