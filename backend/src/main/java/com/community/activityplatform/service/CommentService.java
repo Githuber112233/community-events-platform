@@ -3,8 +3,10 @@ package com.community.activityplatform.service;
 import com.community.activityplatform.dto.Result;
 import com.community.activityplatform.entity.Activity;
 import com.community.activityplatform.entity.ActivityComment;
+import com.community.activityplatform.entity.CommentLike;
 import com.community.activityplatform.repository.ActivityCommentRepository;
 import com.community.activityplatform.repository.ActivityRepository;
+import com.community.activityplatform.repository.CommentLikeRepository;
 import com.community.activityplatform.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -12,7 +14,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 评论服务
@@ -24,6 +28,7 @@ public class CommentService {
     private final ActivityCommentRepository commentRepository;
     private final ActivityRepository activityRepository;
     private final UserRepository userRepository;
+    private final CommentLikeRepository commentLikeRepository;
 
     /**
      * 发表评论
@@ -95,5 +100,66 @@ public class CommentService {
         });
 
         return Result.success(comments);
+    }
+
+    /**
+     * 点赞评论
+     */
+    @Transactional
+    public Result<Map<String, Object>> likeComment(Long userId, Long commentId) {
+        ActivityComment comment = commentRepository.findById(commentId).orElse(null);
+        if (comment == null) {
+            return Result.error("评论不存在");
+        }
+
+        // 检查是否已经点过赞
+        boolean alreadyLiked = commentLikeRepository.findByUserIdAndCommentId(userId, commentId).isPresent();
+        if (alreadyLiked) {
+            return Result.error("已经点过赞了");
+        }
+
+        // 创建点赞记录
+        CommentLike commentLike = CommentLike.builder()
+                .user(userRepository.findById(userId).orElse(null))
+                .comment(comment)
+                .build();
+        commentLikeRepository.save(commentLike);
+
+        // 更新评论点赞数
+        comment.setLikeCount(comment.getLikeCount() + 1);
+        commentRepository.save(comment);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("likeCount", comment.getLikeCount());
+        return Result.success(data);
+    }
+
+    /**
+     * 取消点赞评论
+     */
+    @Transactional
+    public Result<Map<String, Object>> unlikeComment(Long userId, Long commentId) {
+        ActivityComment comment = commentRepository.findById(commentId).orElse(null);
+        if (comment == null) {
+            return Result.error("评论不存在");
+        }
+
+        // 删除点赞记录
+        commentLikeRepository.deleteByUserIdAndCommentId(userId, commentId);
+
+        // 更新评论点赞数
+        comment.setLikeCount(Math.max(0, comment.getLikeCount() - 1));
+        commentRepository.save(comment);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("likeCount", comment.getLikeCount());
+        return Result.success(data);
+    }
+
+    /**
+     * 检查用户是否点赞了评论
+     */
+    public boolean isCommentLiked(Long userId, Long commentId) {
+        return commentLikeRepository.findByUserIdAndCommentId(userId, commentId).isPresent();
     }
 }

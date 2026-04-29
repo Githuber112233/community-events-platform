@@ -29,6 +29,10 @@ public interface ActivityParticipantRepository extends JpaRepository<ActivityPar
     List<ActivityParticipant> findByActivityIdAndStatus(@Param("activityId") Long activityId,
                                                           @Param("status") ParticipantStatus status);
 
+    @Query("SELECT ap FROM ActivityParticipant ap WHERE ap.activity.id = :activityId AND ap.status != :status")
+    List<ActivityParticipant> findByActivityIdAndStatusNot(@Param("activityId") Long activityId,
+                                                            @Param("status") ParticipantStatus status);
+
     @Query("SELECT COUNT(ap) FROM ActivityParticipant ap WHERE ap.activity.id = :activityId AND ap.status = :status")
     Long countByActivityIdAndStatus(@Param("activityId") Long activityId,
                                       @Param("status") ParticipantStatus status);

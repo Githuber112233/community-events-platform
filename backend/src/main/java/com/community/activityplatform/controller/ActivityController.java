@@ -157,9 +157,27 @@ public class ActivityController {
             @RequestHeader(value = "Authorization", required = false) String token,
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "10") Integer size) {
-        // 直接返回热门活动作为推荐（临时方案）
-        Pageable pageable = PageRequest.of(page, size);
-        return activityService.getPopularActivities(pageable, null);
+        Long userId = token != null ? extractUserIdFromToken(token) : null;
+        if (userId == null) {
+            // 未登录用户返回热门活动
+            Pageable pageable = PageRequest.of(page, size);
+            return activityService.getPopularActivities(pageable, null);
+        }
+        // 登录用户使用混合推荐算法
+        return recommendationService.recommendActivities(userId, page, size);
+    }
+
+    /**
+     * 刷新推荐活动（清除缓存重新计算）
+     */
+    @PostMapping("/recommended/refresh")
+    public Result<Page<ActivityDTO>> refreshRecommendedActivities(
+            @RequestHeader("Authorization") String token) {
+        Long userId = extractUserIdFromToken(token);
+        if (userId == null) {
+            return Result.error(401, "未登录或Token无效");
+        }
+        return recommendationService.refreshRecommendation(userId);
     }
 
     /**
@@ -170,6 +188,50 @@ public class ActivityController {
             @PathVariable Long activityId,
             @RequestParam(required = false, defaultValue = "APPROVED") String status) {
         return activityService.getActivityParticipants(activityId, status);
+    }
+
+    /**
+     * 获取活动所有参与者列表（包含详细信息，仅活动创建者可见）
+     */
+    @GetMapping("/{activityId}/participants/all")
+    public Result<List<Map<String, Object>>> getAllParticipantsWithDetails(
+            @PathVariable Long activityId,
+            @RequestHeader("Authorization") String token) {
+        Long userId = extractUserIdFromToken(token);
+        if (userId == null) {
+            return Result.error(401, "未登录或Token无效");
+        }
+        return activityService.getAllParticipantsWithDetails(userId, activityId);
+    }
+
+    /**
+     * 活动签到（仅活动创建者可以操作）
+     */
+    @PostMapping("/{activityId}/check-in/{userId}")
+    public Result<Map<String, Object>> checkInParticipant(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long activityId,
+            @PathVariable Long userId) {
+        Long operatorId = extractUserIdFromToken(token);
+        if (operatorId == null) {
+            return Result.error(401, "未登录或Token无效");
+        }
+        return activityService.checkInParticipant(operatorId, activityId, userId);
+    }
+
+    /**
+     * 取消签到（仅活动创建者可以操作）
+     */
+    @DeleteMapping("/{activityId}/check-in/{userId}")
+    public Result<Void> cancelCheckIn(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long activityId,
+            @PathVariable Long userId) {
+        Long operatorId = extractUserIdFromToken(token);
+        if (operatorId == null) {
+            return Result.error(401, "未登录或Token无效");
+        }
+        return activityService.cancelCheckIn(operatorId, activityId, userId);
     }
 
     /**

@@ -485,7 +485,20 @@ public class RecommendationService {
      */
     public void clearRecommendationCache(Long userId) {
         String pattern = "recommend:user:" + userId + ":*";
-        redisTemplate.delete(redisTemplate.keys(pattern));
+        Set<String> keys = redisTemplate.keys(pattern);
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
+    }
+
+    /**
+     * 刷新用户推荐
+     */
+    public Result<Page<ActivityDTO>> refreshRecommendation(Long userId) {
+        // 清除缓存
+        clearRecommendationCache(userId);
+        // 重新获取推荐（返回分页结果，与 recommendActivities 一致）
+        return recommendActivities(userId, 0, 10);
     }
 
     /**
@@ -564,7 +577,8 @@ public class RecommendationService {
                 .endTime(activity.getEndTime())
                 .registrationDeadline(activity.getRegistrationDeadline())
                 .maxParticipants(activity.getMaxParticipants())
-                .currentParticipants(activity.getCurrentParticipants())
+                .currentParticipants(participantRepository.countByActivityIdAndStatus(activity.getId(),
+                        ActivityParticipant.ParticipantStatus.APPROVED).intValue())
                 .status(activity.getStatus())
                 .viewCount(activity.getViewCount())
                 .likeCount(activity.getLikeCount())

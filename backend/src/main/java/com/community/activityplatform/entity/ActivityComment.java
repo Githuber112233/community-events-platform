@@ -57,5 +57,11 @@ public class ActivityComment {
      */
     @Transient
     private List<ActivityComment> replies;
+
+    /**
+     * 当前用户是否点赞了该评论（非持久化字段，仅用于接口响应）
+     */
+    @Transient
+    private Boolean liked;
 }
 

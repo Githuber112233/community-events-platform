@@ -59,9 +59,51 @@ public class CommentController {
     public Result<Page<ActivityComment>> getActivityComments(
             @PathVariable Long activityId,
             @RequestParam(defaultValue = "0") Integer page,
-            @RequestParam(defaultValue = "10") Integer size) {
+            @RequestParam(defaultValue = "10") Integer size,
+            @RequestHeader(value = "Authorization", required = false) String token) {
         Pageable pageable = PageRequest.of(page, size);
-        return commentService.getActivityComments(activityId, pageable);
+        Result<Page<ActivityComment>> result = commentService.getActivityComments(activityId, pageable);
+        
+        // 如果用户已登录，添加点赞状态
+        if (result.getData() != null && token != null) {
+            Long userId = extractUserIdFromToken(token);
+            if (userId != null) {
+                result.getData().getContent().forEach(comment -> {
+                    boolean liked = commentService.isCommentLiked(userId, comment.getId());
+                    comment.setLiked(liked);
+                });
+            }
+        }
+        
+        return result;
+    }
+
+    /**
+     * 点赞评论
+     */
+    @PostMapping("/{commentId}/like")
+    public Result<Map<String, Object>> likeComment(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long commentId) {
+        Long userId = extractUserIdFromToken(token);
+        if (userId == null) {
+            return Result.error(401, "未登录或Token无效");
+        }
+        return commentService.likeComment(userId, commentId);
+    }
+
+    /**
+     * 取消点赞评论
+     */
+    @DeleteMapping("/{commentId}/like")
+    public Result<Map<String, Object>> unlikeComment(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long commentId) {
+        Long userId = extractUserIdFromToken(token);
+        if (userId == null) {
+            return Result.error(401, "未登录或Token无效");
+        }
+        return commentService.unlikeComment(userId, commentId);
     }
 
     /**

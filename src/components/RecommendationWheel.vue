@@ -151,7 +151,25 @@ const loadRecommendations = async () => {
 
 const handleRefresh = async () => {
   if (isLoading.value) return
-  await loadRecommendations()
+  isLoading.value = true
+  try {
+    // 调用刷新接口，清除缓存重新计算推荐
+    const res = await activityApi.refreshRecommendedActivities()
+    console.log('刷新推荐响应:', res)
+    if (res.code === 200 && res.data) {
+      activities.value = res.data
+      currentIndex.value = 0
+      console.log('推荐已更新，数量:', activities.value.length)
+    } else {
+      console.warn('刷新推荐返回异常:', res)
+    }
+  } catch (e) {
+    console.error('刷新推荐失败:', e)
+    // 失败时回退到普通加载
+    await loadRecommendations()
+  } finally {
+    isLoading.value = false
+  }
 }
 
 const rotateToPrev = () => { currentIndex.value = prevIndex.value }

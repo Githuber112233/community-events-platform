@@ -255,6 +255,22 @@ export const activityApi = {
   getActivityParticipants: (activityId: number, status = 'APPROVED') =>
     request<{ code: number; message?: string; data: any[] }>(`/activities/${activityId}/participants?status=${status}`),
 
+  // 获取活动所有参与者详细信息（仅活动创建者）
+  getAllParticipantsWithDetails: (activityId: number) =>
+    request<{ code: number; message?: string; data: any[] }>(`/activities/${activityId}/participants/all`),
+
+  // 活动签到（仅活动创建者）
+  checkInParticipant: (activityId: number, userId: number) =>
+    request<{ code: number; message?: string; data: any }>(`/activities/${activityId}/check-in/${userId}`, {
+      method: 'POST',
+    }),
+
+  // 取消签到（仅活动创建者）
+  cancelCheckIn: (activityId: number, userId: number) =>
+    request<ApiResult>(`/activities/${activityId}/check-in/${userId}`, {
+      method: 'DELETE',
+    }),
+
   // 获取热门活动
   getPopularActivities: (page = 0, size = 10) =>
     request<PageResponse<Activity>>(`/activities/popular?page=${page}&size=${size}`),
@@ -266,6 +282,12 @@ export const activityApi = {
   // 获取推荐活动
   getRecommendedActivities: (page = 0, size = 10) =>
     request<PageResponse<Activity>>(`/activities/recommended?page=${page}&size=${size}`),
+
+  // 刷新推荐活动
+  refreshRecommendedActivities: () =>
+    request<{ code: number; message?: string; data: Activity[] }>(`/activities/recommended/refresh`, {
+      method: 'POST'
+    }),
 
   // 创建活动
   createActivity: (data: Partial<Activity>) =>
@@ -319,7 +341,7 @@ export interface Comment {
   id: number
   content: string
   user: User
-  activityId: number
+  activityId?: number
   parentId?: number
   replies?: Comment[]
   likeCount: number
@@ -329,7 +351,7 @@ export interface Comment {
 
 export const commentApi = {
   getComments: (activityId: number, page = 0, size = 20) =>
-    request<PageResponse<Comment>>(`/comments/activities/${activityId}?page=${page}&size=${size}`),
+    request<{ code: number; message?: string; data: PageResponse<Comment> }>(`/comments/activities/${activityId}?page=${page}&size=${size}`),
 
   addComment: (activityId: number, content: string, parentId?: number) =>
     request<{ code: number; message?: string; data: Comment }>(`/comments`, {
@@ -343,8 +365,13 @@ export const commentApi = {
     }),
 
   likeComment: (commentId: number) =>
-    request<ApiResult>(`/comments/${commentId}/like`, {
+    request<{ code: number; message?: string; data: { likeCount: number } }>(`/comments/${commentId}/like`, {
       method: 'POST',
+    }),
+
+  unlikeComment: (commentId: number) =>
+    request<{ code: number; message?: string; data: { likeCount: number } }>(`/comments/${commentId}/like`, {
+      method: 'DELETE',
     }),
 }
 

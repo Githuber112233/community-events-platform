@@ -343,7 +343,8 @@ public class UserService {
                 .startTime(activity.getStartTime())
                 .endTime(activity.getEndTime())
                 .status(activity.getStatus())
-                .currentParticipants(activity.getCurrentParticipants())
+                .currentParticipants(participantRepository.countByActivityIdAndStatus(activity.getId(),
+                        ActivityParticipant.ParticipantStatus.APPROVED).intValue())
                 .maxParticipants(activity.getMaxParticipants())
                 .viewCount(activity.getViewCount())
                 .likeCount(activity.getLikeCount())

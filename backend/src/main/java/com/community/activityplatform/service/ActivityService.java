@@ -198,6 +198,59 @@ public class ActivityService {
     }
 
     /**
+     * 获取活动所有参与者列表（包含详细信息，仅活动创建者可见）
+     * 包含报名人员的个人信息：姓名、电话、邮箱等
+     */
+    public Result<List<Map<String, Object>>> getAllParticipantsWithDetails(Long operatorId, Long activityId) {
+        // 验证活动是否存在
+        Activity activity = activityRepository.findById(activityId).orElse(null);
+        if (activity == null) {
+            return Result.error("活动不存在");
+        }
+
+        // 验证操作者是否为活动创建者或管理员
+        if (!activity.getCreator().getId().equals(operatorId)) {
+            User operator = userRepository.findById(operatorId).orElse(null);
+            if (operator == null || operator.getRole() != User.UserRole.ADMIN) {
+                return Result.error("只有活动创建者或管理员可以查看报名信息");
+            }
+        }
+
+        // 获取所有参与者（不包括已取消的）
+        List<ActivityParticipant> participants = participantRepository
+                .findByActivityIdAndStatusNot(activityId, ActivityParticipant.ParticipantStatus.CANCELLED);
+
+        List<Map<String, Object>> result = participants.stream()
+                .map(p -> {
+                    Map<String, Object> map = new HashMap<>();
+                    // 用户基本信息
+                    map.put("participantId", p.getId());
+                    map.put("userId", p.getUser().getId());
+                    map.put("username", p.getUser().getUsername());
+                    map.put("nickname", p.getUser().getNickname());
+                    map.put("avatar", p.getUser().getAvatar());
+                    // 联系方式（仅创建者可见）
+                    map.put("phone", p.getUser().getPhone());
+                    map.put("email", p.getUser().getEmail());
+                    // 性别和地区
+                    map.put("gender", p.getUser().getGender());
+                    map.put("province", p.getUser().getProvince());
+                    map.put("city", p.getUser().getCity());
+                    map.put("district", p.getUser().getDistrict());
+                    // 参与状态
+                    map.put("status", p.getStatus().name());
+                    map.put("message", p.getMessage());
+                    map.put("createdAt", p.getCreatedAt());
+                    // 签到信息
+                    map.put("checkedAt", p.getCheckedAt());
+                    return map;
+                })
+                .collect(Collectors.toList());
+
+        return Result.success(result);
+    }
+
+    /**
      * 获取附近活动
      */
     public Result<List<ActivityDTO>> getNearbyActivities(String city, String district, Long userId) {
@@ -369,6 +422,83 @@ public class ActivityService {
                         activityRepository.save(activity);
                     }
                 });
+
+        return Result.success();
+    }
+
+    /**
+     * 活动签到（仅活动创建者可以操作）
+     */
+    @Transactional
+    public Result<Map<String, Object>> checkInParticipant(Long operatorId, Long activityId, Long participantUserId) {
+        // 验证活动是否存在
+        Activity activity = activityRepository.findById(activityId).orElse(null);
+        if (activity == null) {
+            return Result.error("活动不存在");
+        }
+
+        // 验证操作者是否为活动创建者
+        if (!activity.getCreator().getId().equals(operatorId)) {
+            return Result.error("只有活动创建者可以执行签到操作");
+        }
+
+        // 查找参与记录
+        ActivityParticipant participant = participantRepository
+                .findByUser_IdAndActivity_Id(participantUserId, activityId)
+                .orElse(null);
+        if (participant == null) {
+            return Result.error("该用户未报名此活动");
+        }
+
+        // 检查是否已经签到
+        if (participant.getStatus() == ActivityParticipant.ParticipantStatus.CHECKED_IN) {
+            return Result.error("该用户已签到");
+        }
+
+        // 更新签到状态
+        participant.setStatus(ActivityParticipant.ParticipantStatus.CHECKED_IN);
+        participant.setCheckedAt(LocalDateTime.now());
+        participantRepository.save(participant);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("userId", participantUserId);
+        data.put("checkedAt", participant.getCheckedAt());
+        return Result.success(data);
+    }
+
+    /**
+     * 取消签到（仅活动创建者可以操作）
+     */
+    @Transactional
+    public Result<Void> cancelCheckIn(Long operatorId, Long activityId, Long participantUserId) {
+        // 验证活动是否存在
+        Activity activity = activityRepository.findById(activityId).orElse(null);
+        if (activity == null) {
+            return Result.error("活动不存在");
+        }
+
+        // 验证操作者是否为活动创建者
+        if (!activity.getCreator().getId().equals(operatorId)) {
+            return Result.error("只有活动创建者可以执行签到操作");
+        }
+
+        // 查找参与记录
+        ActivityParticipant participant = participantRepository
+                .findByUser_IdAndActivity_Id(participantUserId, activityId)
+                .orElse(null);
+        if (participant == null) {
+            return Result.error("该用户未报名此活动");
+        }
+
+        // 检查是否已签到
+        if (participant.getStatus() != ActivityParticipant.ParticipantStatus.CHECKED_IN) {
+            return Result.error("该用户未签到");
+        }
+
+        // 恢复为已通过状态
+        participant.setStatus(ActivityParticipant.ParticipantStatus.APPROVED);
+        participant.setCheckedAt(null);
+        participantRepository.save(participant);
 
         return Result.success();
     }

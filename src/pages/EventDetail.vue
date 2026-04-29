@@ -234,7 +234,17 @@
 
           <!-- Participants Card -->
           <div class="card p-6">
-            <h3 class="font-bold text-gray-900 mb-4">已参与成员 ({{ participants.length }})</h3>
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-bold text-gray-900">已参与成员 ({{ participants.length }})</h3>
+              <!-- 仅活动创建者可见的按钮 -->
+              <button
+                v-if="isCreator"
+                @click="showParticipantsModal = true"
+                class="text-sm text-primary-600 hover:text-primary-700"
+              >
+                管理报名
+              </button>
+            </div>
             <div v-if="participants.length > 0" class="space-y-3">
               <div v-for="p in participants.slice(0, 10)" :key="p.id" class="flex items-center space-x-3">
                 <img
@@ -245,6 +255,13 @@
                 <div class="flex-1 min-w-0">
                   <p class="text-sm font-medium text-gray-900 truncate">{{ p.nickname || p.username }}</p>
                 </div>
+                <!-- 签到状态标识 -->
+                <span
+                  v-if="p.status === 'CHECKED_IN'"
+                  class="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full"
+                >
+                  已签到
+                </span>
               </div>
               <p v-if="participants.length > 10" class="text-sm text-gray-500 text-center">
                 还有 {{ participants.length - 10 }} 人参与...
@@ -252,6 +269,104 @@
             </div>
             <div v-else class="text-sm text-gray-500 text-center py-4">
               暂无参与成员
+            </div>
+          </div>
+
+          <!-- 报名管理弹窗（仅活动创建者可见） -->
+          <div v-if="showParticipantsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-lg max-w-4xl w-full max-h-[80vh] overflow-auto">
+              <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                  <h3 class="text-xl font-bold text-gray-900">报名人员管理</h3>
+                  <button @click="showParticipantsModal = false" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- 统计信息 -->
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                  <div class="bg-blue-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-600">总报名人数</p>
+                    <p class="text-2xl font-bold text-blue-600">{{ allParticipants.length }}</p>
+                  </div>
+                  <div class="bg-green-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-600">已签到</p>
+                    <p class="text-2xl font-bold text-green-600">{{ checkedInCount }}</p>
+                  </div>
+                  <div class="bg-yellow-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-600">未签到</p>
+                    <p class="text-2xl font-bold text-yellow-600">{{ allParticipants.length - checkedInCount }}</p>
+                  </div>
+                </div>
+
+                <!-- 报名人员列表 -->
+                <div class="overflow-x-auto">
+                  <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                      <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">用户</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">联系方式</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">地区</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                      <tr v-for="p in allParticipants" :key="p.userId">
+                        <td class="px-4 py-3">
+                          <div class="flex items-center space-x-3">
+                            <img :src="p.avatar" class="w-8 h-8 rounded-full" />
+                            <div>
+                              <p class="font-medium">{{ p.nickname || p.username }}</p>
+                              <p class="text-xs text-gray-500">{{ p.message || '无留言' }}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td class="px-4 py-3">
+                          <p class="text-sm">{{ p.phone || '未填写' }}</p>
+                          <p class="text-xs text-gray-500">{{ p.email || '未填写' }}</p>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-500">
+                          {{ [p.province, p.city, p.district].filter(Boolean).join(' ') || '未填写' }}
+                        </td>
+                        <td class="px-4 py-3">
+                          <span
+                            :class="{
+                              'bg-green-100 text-green-800': p.status === 'CHECKED_IN',
+                              'bg-blue-100 text-blue-800': p.status === 'APPROVED',
+                              'bg-yellow-100 text-yellow-800': p.status === 'PENDING'
+                            }"
+                            class="px-2 py-1 text-xs rounded-full"
+                          >
+                            {{ statusText(p.status) }}
+                          </span>
+                        </td>
+                        <td class="px-4 py-3">
+                          <button
+                            v-if="p.status !== 'CHECKED_IN'"
+                            @click="handleCheckIn(p.userId)"
+                            class="text-sm text-green-600 hover:text-green-700 mr-3"
+                          >
+                            签到
+                          </button>
+                          <button
+                            v-else
+                            @click="handleCancelCheckIn(p.userId)"
+                            class="text-sm text-red-600 hover:text-red-700 mr-3"
+                          >
+                            取消签到
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div v-if="allParticipants.length === 0" class="text-center py-8 text-gray-500">
+                    暂无报名人员
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -312,6 +427,7 @@ const router = useRouter()
 const event = ref<Activity | null>(null)
 const comments = ref<Comment[]>([])
 const participants = ref<any[]>([])
+const allParticipants = ref<any[]>([])
 const loading = ref(true)
 const error = ref('')
 const isLiked = ref(false)
@@ -319,8 +435,36 @@ const participating = ref(false)
 const newComment = ref('')
 const submittingComment = ref(false)
 const similarEvents = ref<Activity[]>([])
+const showParticipantsModal = ref(false)
 
 const isLoggedIn = computed(() => !!localStorage.getItem('token'))
+
+const isCreator = computed(() => {
+  if (!event.value) return false
+  const user = localStorage.getItem('user')
+  if (user) {
+    try {
+      const userData = JSON.parse(user)
+      return userData.id === event.value?.creator?.id
+    } catch {}
+  }
+  return false
+})
+
+const checkedInCount = computed(() => {
+  return allParticipants.value.filter(p => p.status === 'CHECKED_IN').length
+})
+
+const statusText = (status: string) => {
+  const map: Record<string, string> = {
+    'APPROVED': '已通过',
+    'PENDING': '待审核',
+    'CHECKED_IN': '已签到',
+    'CANCELLED': '已取消',
+    'REJECTED': '已拒绝'
+  }
+  return map[status] || status
+}
 
 const currentUserAvatar = computed(() => {
   const user = localStorage.getItem('user')
@@ -427,13 +571,15 @@ const fetchComments = async () => {
     const activityId = Number(route.params.id)
     const res = await commentApi.getComments(activityId)
     if (res.code === 200 && res.data) {
-      comments.value = res.data.content || []
+      // res.data 是 PageResponse<Comment>，需要访问 res.data.content
+      comments.value = (res.data as any).content || []
     } else {
       console.error('获取评论失败:', res.message)
       comments.value = []
     }
-  } catch (e) {
+  } catch (e: any) {
     console.error('获取评论失败:', e)
+    // 如果是404，说明后端接口不存在，使用空数组
     comments.value = []
   }
 }
@@ -461,6 +607,55 @@ const fetchParticipants = async () => {
     }
   } catch (e) {
     console.error('获取参与者失败:', e)
+  }
+}
+
+const fetchAllParticipantsWithDetails = async () => {
+  if (!event.value || !isCreator.value) return
+  try {
+    const res = await activityApi.getAllParticipantsWithDetails(event.value.id)
+    if (res.code === 200) {
+      allParticipants.value = res.data || []
+    }
+  } catch (e: any) {
+    console.error('获取报名详情失败:', e)
+    alert('获取报名详情失败: ' + (e.message || '未知错误'))
+  }
+}
+
+const handleCheckIn = async (userId: number) => {
+  if (!event.value) return
+  try {
+    const res = await activityApi.checkInParticipant(event.value.id, userId)
+    if (res.code === 200) {
+      alert('签到成功')
+      // 刷新数据
+      fetchAllParticipantsWithDetails()
+      fetchParticipants()
+    } else {
+      alert(res.message || '签到失败')
+    }
+  } catch (e: any) {
+    console.error('签到失败:', e)
+    alert('签到失败: ' + (e.message || '未知错误'))
+  }
+}
+
+const handleCancelCheckIn = async (userId: number) => {
+  if (!event.value) return
+  try {
+    const res = await activityApi.cancelCheckIn(event.value.id, userId)
+    if (res.code === 200) {
+      alert('已取消签到')
+      // 刷新数据
+      fetchAllParticipantsWithDetails()
+      fetchParticipants()
+    } else {
+      alert(res.message || '取消签到失败')
+    }
+  } catch (e: any) {
+    console.error('取消签到失败:', e)
+    alert('取消签到失败: ' + (e.message || '未知错误'))
   }
 }
 
@@ -564,13 +759,26 @@ const handleLikeComment = async (comment: Comment) => {
     return
   }
   try {
-    const res = await commentApi.likeComment(comment.id)
-    if (res.code === 200) {
-      comment.likeCount = (comment.likeCount || 0) + 1
-      comment.liked = true
+    if (comment.liked) {
+      // 取消点赞
+      const res = await commentApi.unlikeComment(comment.id)
+      if (res.code === 200) {
+        comment.likeCount = Math.max(0, (comment.likeCount || 1) - 1)
+        comment.liked = false
+      }
+    } else {
+      // 点赞
+      const res = await commentApi.likeComment(comment.id)
+      if (res.code === 200) {
+        comment.likeCount = (comment.likeCount || 0) + 1
+        comment.liked = true
+      }
     }
-  } catch (e) {
+  } catch (e: any) {
     console.error('评论点赞失败:', e)
+    if (e.message) {
+      alert(e.message)
+    }
   }
 }
 
@@ -578,6 +786,10 @@ onMounted(async () => {
   await fetchEventDetail()
   if (event.value) {
     await Promise.all([fetchComments(), fetchSimilarEvents(), fetchParticipants()])
+    // 如果是活动创建者，加载详细信息
+    if (isCreator.value) {
+      await fetchAllParticipantsWithDetails()
+    }
   }
 })
 </script>
