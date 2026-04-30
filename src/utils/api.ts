@@ -395,6 +395,33 @@ export const followApi = {
     request<{ code: number; message?: string; data: User[] }>(`/users/${userId}/following`),
 }
 
+// ============ 通知相关 ============
+
+export const notificationApi = {
+  // 获取通知列表
+  getNotifications: (page = 0, size = 20) =>
+    request<{ code: number; message?: string; data: { content: any[]; totalElements: number; totalPages: number } }>(`/notifications?page=${page}&size=${size}`),
+
+  // 获取未读数量
+  getUnreadCount: () =>
+    request<{ code: number; message?: string; data: { unreadCount: number } }>('/notifications/unread-count'),
+
+  // 标记单条已读
+  markAsRead: (notificationId: number) =>
+    request<ApiResult>(`/notifications/${notificationId}/read`, { method: 'PUT' }),
+
+  // 标记全部已读
+  markAllAsRead: () =>
+    request<ApiResult>('/notifications/read-all', { method: 'PUT' }),
+
+  // 一键通知活动参与者
+  notifyParticipants: (activityId: number, title?: string, content?: string) =>
+    request<ApiResult>(`/notifications/activity/${activityId}`, {
+      method: 'POST',
+      body: JSON.stringify({ title, content }),
+    }),
+}
+
 // 导出所有API
 export default {
   auth: authApi,
@@ -402,4 +429,5 @@ export default {
   activity: activityApi,
   comment: commentApi,
   follow: followApi,
+  notification: notificationApi,
 }

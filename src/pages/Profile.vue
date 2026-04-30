@@ -188,12 +188,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { Calendar, MapPin, Mail, Edit, Settings, CalendarDays, Star, Users } from 'lucide-vue-next'
 import { activityApi, userApi, followApi, type Activity, type User } from '../utils/mockData'
 import EventCard from '../components/EventCard.vue'
 
 const route = useRoute()
+const router = useRouter()
 // viewUserId 不为空表示查看他人主页
 const viewUserId = computed(() => route.params.id ? Number(route.params.id) : null)
 

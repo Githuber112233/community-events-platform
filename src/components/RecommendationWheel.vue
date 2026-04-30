@@ -17,84 +17,96 @@
     </div>
 
     <div class="wheel-wrapper" :class="{ 'is-loading': isLoading }">
-      <div class="wheel-carousel">
-        <div class="wheel-track" :style="trackStyle">
-          <!-- 左卡片 -->
-          <div class="wheel-card wheel-card-left" @click="rotateToPrev">
-            <template v-if="activities.length >= 2">
-              <div class="card-image-wrap">
-                <img :src="activities[prevIndex]?.coverImage || defaultImage" :alt="activities[prevIndex]?.title" />
-                <div class="card-overlay"></div>
-              </div>
-              <div class="card-content">
-                <span class="card-tag">{{ activities[prevIndex]?.interests?.[0]?.name || '综合' }}</span>
-                <h4 class="card-title">{{ activities[prevIndex]?.title }}</h4>
-                <p class="card-meta">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                  {{ activities[prevIndex]?.city }}{{ activities[prevIndex]?.district }}
-                </p>
-              </div>
-            </template>
-          </div>
+      <!-- 无限轮盘区域 -->
+      <div class="wheel-viewport" v-if="activities.length > 0">
+        <!-- 左箭头 -->
+        <button class="wheel-arrow wheel-arrow-left" @click="slidePrev">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
 
-          <!-- 中间卡片 -->
-          <div class="wheel-card wheel-card-center" @click="goToDetail">
-            <template v-if="activities.length > 0">
-              <div class="card-image-wrap">
-                <img :src="activities[currentIndex]?.coverImage || defaultImage" :alt="activities[currentIndex]?.title" />
-                <div class="card-overlay"></div>
-                <span class="card-hot-badge">
-                  <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93z"/></svg>
-                  推荐
-                </span>
-              </div>
-              <div class="card-content">
-                <span class="card-tag">{{ activities[currentIndex]?.interests?.[0]?.name || '综合' }}</span>
-                <h4 class="card-title">{{ activities[currentIndex]?.title }}</h4>
-                <div class="card-info-row">
-                  <span class="card-date">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                    {{ formatDate(activities[currentIndex]?.startTime) }}
-                  </span>
-                  <span class="card-participants">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
-                    {{ activities[currentIndex]?.currentParticipants || 0 }}/{{ activities[currentIndex]?.maxParticipants }}
-                  </span>
-                </div>
-                <p class="card-location">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                  {{ activities[currentIndex]?.address || '' }}{{ activities[currentIndex]?.district }}
-                </p>
-              </div>
-            </template>
-            <div v-else class="empty-wheel">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-              <p>暂无推荐</p>
+        <!-- 卡片容器 -->
+        <div class="wheel-stage">
+          <div class="wheel-card card-left" :key="'prev-' + displayItems.prev.id" @click="slidePrev">
+            <div class="card-image-wrap">
+              <img :src="displayItems.prev.coverImage || defaultImage" :alt="displayItems.prev.title" />
+              <div class="card-overlay"></div>
+            </div>
+            <div class="card-content">
+              <span class="card-tag">{{ displayItems.prev.interests?.[0]?.name || '综合' }}</span>
+              <h4 class="card-title">{{ displayItems.prev.title }}</h4>
+              <p class="card-meta">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                {{ displayItems.prev.city }}{{ displayItems.prev.district }}
+              </p>
             </div>
           </div>
 
-          <!-- 右卡片 -->
-          <div class="wheel-card wheel-card-right" @click="rotateToNext">
-            <template v-if="activities.length >= 3">
-              <div class="card-image-wrap">
-                <img :src="activities[nextIndex]?.coverImage || defaultImage" :alt="activities[nextIndex]?.title" />
-                <div class="card-overlay"></div>
+          <div class="wheel-card card-center" :key="'center-' + displayItems.center.id" @click="goToDetail">
+            <div class="card-image-wrap">
+              <img :src="displayItems.center.coverImage || defaultImage" :alt="displayItems.center.title" />
+              <div class="card-overlay"></div>
+              <span class="card-hot-badge">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93z"/></svg>
+                推荐
+              </span>
+            </div>
+            <div class="card-content">
+              <span class="card-tag">{{ displayItems.center.interests?.[0]?.name || '综合' }}</span>
+              <h4 class="card-title">{{ displayItems.center.title }}</h4>
+              <div class="card-info-row">
+                <span class="card-date">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  {{ formatDate(displayItems.center.startTime) }}
+                </span>
+                <span class="card-participants">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+                  {{ displayItems.center.currentParticipants || 0 }}/{{ displayItems.center.maxParticipants }}
+                </span>
               </div>
-              <div class="card-content">
-                <span class="card-tag">{{ activities[nextIndex]?.interests?.[0]?.name || '综合' }}</span>
-                <h4 class="card-title">{{ activities[nextIndex]?.title }}</h4>
-                <p class="card-meta">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                  {{ activities[nextIndex]?.city }}{{ activities[nextIndex]?.district }}
-                </p>
-              </div>
-            </template>
+              <p class="card-location">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                {{ displayItems.center.address || '' }}{{ displayItems.center.district }}
+              </p>
+            </div>
+          </div>
+
+          <div class="wheel-card card-right" :key="'next-' + displayItems.next.id" @click="slideNext">
+            <div class="card-image-wrap">
+              <img :src="displayItems.next.coverImage || defaultImage" :alt="displayItems.next.title" />
+              <div class="card-overlay"></div>
+            </div>
+            <div class="card-content">
+              <span class="card-tag">{{ displayItems.next.interests?.[0]?.name || '综合' }}</span>
+              <h4 class="card-title">{{ displayItems.next.title }}</h4>
+              <p class="card-meta">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                {{ displayItems.next.city }}{{ displayItems.next.district }}
+              </p>
+            </div>
           </div>
         </div>
 
-        <div class="wheel-indicators">
-          <button v-for="(_, index) in Math.min(activities.length, 5)" :key="index" class="indicator" :class="{ active: index === currentIndex % 5 }" @click.stop="currentIndex = index"></button>
-        </div>
+        <!-- 右箭头 -->
+        <button class="wheel-arrow wheel-arrow-right" @click="slideNext">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+
+      <!-- 空状态 -->
+      <div v-else class="empty-wheel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        <p>暂无推荐</p>
+      </div>
+
+      <!-- 指示器 -->
+      <div class="wheel-indicators" v-if="activities.length > 0">
+        <button
+          v-for="(_, idx) in Math.min(activities.length, 5)"
+          :key="idx"
+          class="indicator"
+          :class="{ active: idx === (currentIdx % Math.min(activities.length, 5)) }"
+          @click.stop="jumpTo(idx)"
+        ></button>
       </div>
     </div>
 
@@ -113,25 +125,28 @@ import type { Activity } from '../utils/api'
 
 const router = useRouter()
 const activities = ref<Activity[]>([])
-const currentIndex = ref(0)
+const currentIdx = ref(0) // 无限递增/递减，通过 % 取模访问
 const isLoading = ref(false)
 const isLoggedIn = ref(!!localStorage.getItem('token'))
 const defaultImage = 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800'
 
-const prevIndex = computed(() => {
-  if (activities.value.length < 2) return 0
-  return (currentIndex.value - 1 + activities.value.length) % activities.value.length
-})
+// 循环取活动，支持无限滑动
+const getItem = (idx: number): Activity => {
+  const len = activities.value.length
+  if (len === 0) return {} as Activity
+  return activities.value[((idx % len) + len) % len]
+}
 
-const nextIndex = computed(() => {
-  if (activities.value.length < 3) return currentIndex.value
-  return (currentIndex.value + 1) % activities.value.length
-})
-
-const trackStyle = computed(() => ({
-  transform: `translateX(-${currentIndex.value * 33.33}%)`,
-  transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
+// 三张可见卡片
+const displayItems = computed(() => ({
+  prev:   getItem(currentIdx.value - 1),
+  center: getItem(currentIdx.value),
+  next:   getItem(currentIdx.value + 1),
 }))
+
+const slidePrev = () => { currentIdx.value-- }
+const slideNext = () => { currentIdx.value++ }
+const jumpTo = (idx: number) => { currentIdx.value = idx }
 
 const loadRecommendations = async () => {
   if (!isLoggedIn.value) return
@@ -140,7 +155,7 @@ const loadRecommendations = async () => {
     const res = await activityApi.getRecommendedActivities(0, 10)
     if (res.code === 200 && res.data.content) {
       activities.value = res.data.content
-      currentIndex.value = 0
+      currentIdx.value = 0
     }
   } catch (e) {
     console.error('获取推荐失败:', e)
@@ -153,27 +168,19 @@ const handleRefresh = async () => {
   if (isLoading.value) return
   isLoading.value = true
   try {
-    // 调用刷新接口，清除缓存重新计算推荐
     const res = await activityApi.refreshRecommendedActivities()
-    console.log('刷新推荐响应:', res)
     if (res.code === 200 && res.data) {
-      activities.value = res.data
-      currentIndex.value = 0
-      console.log('推荐已更新，数量:', activities.value.length)
-    } else {
-      console.warn('刷新推荐返回异常:', res)
+      const list = Array.isArray(res.data) ? res.data : (res.data.content || [])
+      activities.value = list
+      currentIdx.value = 0
     }
   } catch (e) {
     console.error('刷新推荐失败:', e)
-    // 失败时回退到普通加载
     await loadRecommendations()
   } finally {
     isLoading.value = false
   }
 }
-
-const rotateToPrev = () => { currentIndex.value = prevIndex.value }
-const rotateToNext = () => { currentIndex.value = (currentIndex.value + 1) % Math.max(activities.value.length, 1) }
 
 const formatDate = (dateStr?: string) => {
   if (!dateStr) return '待定'
@@ -182,8 +189,9 @@ const formatDate = (dateStr?: string) => {
 }
 
 const goToDetail = () => {
-  if (activities.value.length > 0 && activities[currentIndex.value]) {
-    router.push(`/events/${activities[currentIndex.value].id}`)
+  const item = getItem(currentIdx.value)
+  if (item?.id) {
+    router.push(`/events/${item.id}`)
   }
 }
 
@@ -259,32 +267,125 @@ onMounted(() => {
 }
 .refresh-btn.is-spinning svg { animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-.wheel-wrapper { position: relative; z-index: 1; perspective: 1000px; }
-.wheel-wrapper.is-loading .wheel-track { opacity: 0.5; pointer-events: none; }
-.wheel-carousel { position: relative; height: 280px; overflow: hidden; }
-.wheel-track { display: flex; align-items: center; height: 100%; }
+
+/* 轮盘主体 */
+.wheel-wrapper {
+  position: relative;
+  z-index: 1;
+}
+.wheel-wrapper.is-loading .wheel-stage { opacity: 0.5; pointer-events: none; }
+
+.wheel-viewport {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 300px;
+  overflow: hidden;
+}
+
+/* 左右箭头 */
+.wheel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s ease;
+  backdrop-filter: blur(4px);
+}
+.wheel-arrow svg { width: 16px; height: 16px; }
+.wheel-arrow:hover {
+  background: rgba(212, 175, 55, 0.3);
+  color: #fff;
+  transform: translateY(-50%) scale(1.1);
+}
+.wheel-arrow-left { left: 4px; }
+.wheel-arrow-right { right: 4px; }
+
+/* 卡片舞台 */
+.wheel-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 卡片基础样式 */
 .wheel-card {
   position: absolute;
-  width: 200px;
-  height: 260px;
   border-radius: 16px;
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   background: #fff;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  transition: all 0.45s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.wheel-card-left { left: 0; transform: translateX(-10px) scale(0.85); opacity: 0.6; z-index: 1; }
-.wheel-card-center { left: 50%; transform: translateX(-50%) scale(1); opacity: 1; z-index: 3; width: 220px; height: 280px; }
-.wheel-card-right { right: 0; transform: translateX(10px) scale(0.85); opacity: 0.6; z-index: 1; }
-.wheel-card:hover { transform: translateX(-50%) scale(1.05) !important; z-index: 10; }
-.wheel-card-left:hover { transform: translateX(0) scale(0.9) !important; }
-.wheel-card-right:hover { transform: translateX(0) scale(0.9) !important; }
-.card-image-wrap { position: relative; height: 140px; overflow: hidden; }
-.wheel-card-center .card-image-wrap { height: 160px; }
+
+/* 左侧卡片 */
+.card-left {
+  left: 6%;
+  width: 190px;
+  height: 250px;
+  transform: translateX(-8px) scale(0.82) rotateY(5deg);
+  opacity: 0.5;
+  z-index: 1;
+  filter: brightness(0.8);
+}
+.card-left:hover {
+  transform: translateX(0) scale(0.88) rotateY(2deg);
+  opacity: 0.8;
+  z-index: 5;
+}
+
+/* 中间卡片 */
+.card-center {
+  left: 50%;
+  width: 220px;
+  height: 280px;
+  transform: translateX(-50%) scale(1) rotateY(0deg);
+  opacity: 1;
+  z-index: 3;
+}
+.card-center:hover {
+  transform: translateX(-50%) scale(1.04) rotateY(0deg);
+  box-shadow: 0 16px 50px rgba(212, 175, 55, 0.25);
+  z-index: 10;
+}
+
+/* 右侧卡片 */
+.card-right {
+  right: 6%;
+  width: 190px;
+  height: 250px;
+  transform: translateX(8px) scale(0.82) rotateY(-5deg);
+  opacity: 0.5;
+  z-index: 1;
+  filter: brightness(0.8);
+}
+.card-right:hover {
+  transform: translateX(0) scale(0.88) rotateY(-2deg);
+  opacity: 0.8;
+  z-index: 5;
+}
+
+/* 卡片内容 */
+.card-image-wrap { position: relative; height: 130px; overflow: hidden; }
+.card-center .card-image-wrap { height: 160px; }
 .card-image-wrap img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
-.wheel-card:hover .card-image-wrap img { transform: scale(1.1); }
+.wheel-card:hover .card-image-wrap img { transform: scale(1.08); }
 .card-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 40%, rgba(0, 0, 0, 0.6) 100%); }
+
 .card-hot-badge {
   position: absolute;
   top: 10px;
@@ -300,57 +401,72 @@ onMounted(() => {
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(255, 107, 107, 0.4);
 }
-.card-content { padding: 12px; }
+
+.card-content { padding: 10px 12px; }
 .card-tag {
   display: inline-block;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 600;
   color: #d4af37;
   background: rgba(212, 175, 55, 0.15);
-  padding: 2px 8px;
-  border-radius: 8px;
-  margin-bottom: 6px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-bottom: 4px;
 }
 .card-title {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: #111;
-  margin: 0 0 6px 0;
+  margin: 0 0 4px 0;
   line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.wheel-card-center .card-title { font-size: 1rem; }
+.card-center .card-title { font-size: 1rem; }
 .card-meta, .card-location {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 0.75rem;
+  gap: 3px;
+  font-size: 0.7rem;
   color: #888;
-  margin: 4px 0;
+  margin: 3px 0;
 }
 .card-meta svg, .card-location svg, .card-date svg, .card-participants svg {
-  width: 12px;
-  height: 12px;
+  width: 11px;
+  height: 11px;
   flex-shrink: 0;
 }
-.card-info-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-.card-date, .card-participants { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; color: #666; }
-.empty-wheel { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #888; }
+.card-info-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; }
+.card-date, .card-participants { display: flex; align-items: center; gap: 3px; font-size: 0.7rem; color: #666; }
+
+/* 空状态 */
+.empty-wheel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 280px;
+  color: #888;
+}
 .empty-wheel svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.5; }
 .empty-wheel p { font-size: 0.9rem; }
-.wheel-indicators { display: flex; justify-content: center; gap: 8px; margin-top: 16px; }
+
+/* 指示器 */
+.wheel-indicators { display: flex; justify-content: center; gap: 8px; margin-top: 14px; }
 .indicator {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.25);
   border: none;
   cursor: pointer;
   transition: all 0.3s ease;
+  padding: 0;
 }
 .indicator.active { width: 24px; border-radius: 4px; background: #d4af37; }
+
+/* 登录提示 */
 .login-prompt {
   margin-top: 16px;
   padding: 16px;
@@ -363,10 +479,18 @@ onMounted(() => {
 .login-prompt p { color: #888; font-size: 0.85rem; margin: 0 0 8px 0; }
 .login-link { color: #d4af37; font-weight: 600; text-decoration: none; font-size: 0.9rem; transition: color 0.2s; }
 .login-link:hover { color: #fff; }
+
+/* 移动端适配 */
 @media (max-width: 640px) {
   .wheel-container { padding: 16px; }
-  .wheel-card { width: 160px; height: 220px; }
-  .wheel-card-center { width: 180px; height: 240px; }
-  .wheel-carousel { height: 240px; }
+  .wheel-viewport { height: 260px; }
+  .card-left, .card-right { width: 150px; height: 210px; }
+  .card-center { width: 180px; height: 240px; }
+  .card-center .card-image-wrap { height: 130px; }
+  .card-image-wrap { height: 105px; }
+  .card-left { left: 2%; }
+  .card-right { right: 2%; }
+  .wheel-arrow { width: 26px; height: 26px; }
+  .wheel-arrow svg { width: 13px; height: 13px; }
 }
 </style>

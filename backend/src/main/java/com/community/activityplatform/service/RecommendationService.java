@@ -29,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 /**
@@ -70,7 +71,10 @@ public class RecommendationService {
     @Value("${recommendation.cb-quality-weight:0.25}")
     private Double cbQualityWeight;
 
-    // 用户行为反馈权重（用于兴趣标签动态更新）
+    // 用户行为反馈权重系数（参考小红书/豆瓣行为分层加权策略）
+    // 权重计算公式：weight = max(1, ceil((log(1+clickCount)*1 + log(1+participateCount)*5) * 10))
+    // 浏览→clickCount+1, 点赞→clickCount+1, 参与→participateCount+1
+    // 用 log(1+x) 平滑避免线性膨胀，参与行为权重是点击的5倍
     private static final double FEEDBACK_PARTICIPATE = 0.1;
     private static final double FEEDBACK_LIKE = 0.05;
     private static final double FEEDBACK_VIEW = 0.01;
@@ -492,13 +496,42 @@ public class RecommendationService {
     }
 
     /**
-     * 刷新用户推荐
+     * 刷新用户推荐（清除缓存、加入随机扰动后重新计算）
+     * 使用加权随机打散：排名越靠前的活动权重越高，但每次结果不同
      */
     public Result<Page<ActivityDTO>> refreshRecommendation(Long userId) {
         // 清除缓存
         clearRecommendationCache(userId);
-        // 重新获取推荐（返回分页结果，与 recommendActivities 一致）
-        return recommendActivities(userId, 0, 10);
+        // 重新获取推荐
+        Result<Page<ActivityDTO>> result = recommendActivities(userId, 0, 20);
+        if (result.getCode() != 200 || result.getData() == null) {
+            return result;
+        }
+        List<ActivityDTO> list = new ArrayList<>(result.getData().getContent());
+        if (list.size() <= 1) {
+            return result;
+        }
+        // 加权随机打散：权重 = size - i，排名越前权重越大
+        Random random = ThreadLocalRandom.current();
+        List<ActivityDTO> shuffled = new ArrayList<>();
+        List<ActivityDTO> remaining = new ArrayList<>(list);
+        for (int i = 0; i < list.size(); i++) {
+            // 每次从剩余列表中按权重随机选取一个
+            int totalWeight = remaining.size() * (remaining.size() + 1) / 2;
+            int pick = random.nextInt(totalWeight);
+            int cumulative = 0;
+            for (int j = 0; j < remaining.size(); j++) {
+                cumulative += (remaining.size() - j);
+                if (pick < cumulative) {
+                    shuffled.add(remaining.remove(j));
+                    break;
+                }
+            }
+        }
+        // 截取请求的 size
+        List<ActivityDTO> pageContent = shuffled.stream().limit(10).collect(Collectors.toList());
+        Pageable pageable = PageRequest.of(0, 10);
+        return Result.success(new PageImpl<>(pageContent, pageable, result.getData().getTotalElements()));
     }
 
     /**
@@ -534,11 +567,18 @@ public class RecommendationService {
                     .orElse(null);
 
             if (userInterest != null) {
-                // 动态增加权重（参与/点赞/浏览对不同兴趣标签的贡献）
-                int baseCount = "participate".equals(actionType.toLowerCase())
-                        ? userInterest.getParticipateCount()
-                        : userInterest.getClickCount();
-                userInterest.setWeight(userInterest.getWeight() + (int) (feedbackWeight * (baseCount + 1)));
+                // 更新计数
+                if ("participate".equals(actionType.toLowerCase())) {
+                    userInterest.setParticipateCount(userInterest.getParticipateCount() + 1);
+                } else {
+                    userInterest.setClickCount(userInterest.getClickCount() + 1);
+                }
+                // 重新计算权重：weight = max(1, ceil((log(1+clicks)*1 + log(1+participates)*5) * 10))
+                int clicks = Math.max(0, userInterest.getClickCount());
+                int participates = Math.max(0, userInterest.getParticipateCount());
+                double score = Math.log(1 + clicks) * 1.0 + Math.log(1 + participates) * 5.0;
+                int newWeight = Math.max(1, (int) Math.ceil(score * 10));
+                userInterest.setWeight(newWeight);
                 userInterestRepository.save(userInterest);
             } else {
                 // 首次接触该兴趣标签，创建记录

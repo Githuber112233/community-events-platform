@@ -35,6 +35,15 @@ dev-log.txt
 # 工作目录
 .workbuddy/
 
+# 编译日志
+backend/compile-log.txt
+
+# 禁用中的 Git 仓库（后端独立仓库备份）
+backend/.git_disabled/
+
+# 推荐算法文档（PDF 等二进制文件）
+docs/recommendation/
+
 # 论文相关（可选，看你需要保留哪些）
 # archive/
 # docs/

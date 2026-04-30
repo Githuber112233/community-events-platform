@@ -131,6 +131,39 @@ public class AdminController {
     }
 
     /**
+     * 获取所有用户的兴趣权重汇总数据
+     */
+    @GetMapping("/users/interests")
+    public Result<?> getAllUsersInterestWeights(@RequestHeader("Authorization") String token) {
+        if (!isAdmin(token)) {
+            return Result.error(403, "无权限访问");
+        }
+        return adminService.getAllUsersInterestWeights();
+    }
+
+    /**
+     * 回填用户兴趣点击/参与计数（从历史数据反推）
+     */
+    @PostMapping("/users/interests/backfill")
+    public Result<?> backfillInterestCounts(@RequestHeader("Authorization") String token) {
+        if (!isAdmin(token)) {
+            return Result.error(403, "无权限访问");
+        }
+        return adminService.backfillInterestCounts();
+    }
+
+    /**
+     * 获取 User-CF 协同过滤算法可视化数据
+     */
+    @GetMapping("/recommendation/user-cf")
+    public Result<?> getUserCFVisualization(@RequestHeader("Authorization") String token) {
+        if (!isAdmin(token)) {
+            return Result.error(403, "无权限访问");
+        }
+        return adminService.getUserCFVisualization();
+    }
+
+    /**
      * 判断是否为管理员（检查用户角色）
      */
     private boolean isAdmin(String token) {

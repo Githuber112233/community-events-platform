@@ -54,8 +54,11 @@
       </div>
     </section>
 
-    <!-- 轮盘推荐（仅登录用户可见） -->
+    <!-- 轮盘推荐（为你推荐） -->
     <section class="recommendation-section container-custom">
+      <div class="section-header reveal-up">
+        <h2>为你推荐</h2>
+      </div>
       <RecommendationWheel />
     </section>
 
@@ -101,60 +104,6 @@
       </div>
       <div v-else class="empty-tip">暂无热门活动</div>
     </section>
-
-    <!-- Recommended Section（仅登录用户显示） -->
-    <section v-if="recommendedEvents.length > 0" class="events-section container-custom">
-      <div class="section-header reveal-up">
-        <h2>为你推荐</h2>
-        <RouterLink to="/events" class="see-all-link">
-          查看全部
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </RouterLink>
-      </div>
-      <div v-if="loadingRecommended" class="loading-placeholder">
-        <div class="skeleton-card" v-for="n in 3" :key="n"></div>
-      </div>
-      <div v-else class="events-grid">
-        <EventCard
-          v-for="event in recommendedEvents"
-          :key="event.id"
-          :event="transformEvent(event)"
-        />
-      </div>
-    </section>
-
-    <!-- New Events Section -->
-    <section class="events-section container-custom">
-      <div class="section-header reveal-up">
-        <h2>最新发布</h2>
-        <RouterLink to="/events" class="see-all-link">
-          查看全部
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </RouterLink>
-      </div>
-      <div v-if="loadingNew" class="loading-placeholder">
-        <div class="skeleton-card" v-for="n in 3" :key="n"></div>
-      </div>
-      <div v-else-if="newEvents.length > 0" class="events-grid">
-        <EventCard
-          v-for="event in newEvents"
-          :key="event.id"
-          :event="transformEvent(event)"
-        />
-      </div>
-      <div v-else class="empty-tip">暂无最新活动</div>
-    </section>
-
-    <!-- CTA Section -->
-    <section class="cta-section reveal-up">
-      <div class="cta-inner container-custom">
-        <div class="cta-left">
-          <h2>想办一场属于自己的活动？</h2>
-          <p>无论规模大小，在这里都能找到志同道合的参与者。</p>
-        </div>
-        <RouterLink to="/create-event" class="btn-primary-gold">立即发布</RouterLink>
-      </div>
-    </section>
   </div>
 </template>
 
@@ -167,11 +116,7 @@ import EventCard from '../components/EventCard.vue'
 import RecommendationWheel from '../components/RecommendationWheel.vue'
 
 const hotEvents = ref<Activity[]>([])
-const newEvents = ref<Activity[]>([])
-const recommendedEvents = ref<Activity[]>([])
 const loadingHot = ref(true)
-const loadingNew = ref(true)
-const loadingRecommended = ref(false)
 
 // 根据兴趣分类生成默认封面图
 const getDefaultCoverImage = (interestName?: string): string => {
@@ -255,32 +200,6 @@ onMounted(async () => {
     console.error('获取热门活动失败:', e)
   }
   loadingHot.value = false
-
-  // 获取最新活动
-  try {
-    const res = await activityApi.getActivities({ page: 0, size: 6 })
-    if (res.code === 200 && res.data.content) {
-      newEvents.value = res.data.content
-    }
-  } catch (e) {
-    console.error('获取最新活动失败:', e)
-  }
-  loadingNew.value = false
-
-  // 获取推荐活动（仅登录用户）
-  const token = localStorage.getItem('token')
-  if (token) {
-    try {
-      loadingRecommended.value = true
-      const res = await activityApi.getRecommendedActivities(0, 6)
-      if (res.code === 200 && res.data.content) {
-        recommendedEvents.value = res.data.content
-      }
-    } catch (e) {
-      console.error('获取推荐活动失败:', e)
-    }
-    loadingRecommended.value = false
-  }
 })
 </script>
 
@@ -554,42 +473,6 @@ onMounted(async () => {
 @keyframes shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
-}
-
-/* ─── CTA ─────────────────────────────────── */
-.cta-section {
-  background: #111;
-  padding: 80px 0;
-  margin-top: 0;
-}
-.cta-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 40px;
-  flex-wrap: wrap;
-}
-.cta-left h2 {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: -0.02em;
-  margin-bottom: 8px;
-}
-.cta-left p {
-  color: #888;
-  font-size: 1rem;
-}
-.cta-section .btn-primary-gold {
-  background: #d4af37;
-  border-color: #d4af37;
-  color: #111;
-  white-space: nowrap;
-}
-.cta-section .btn-primary-gold:hover {
-  background: #c9a227;
-  border-color: #c9a227;
-  color: #111;
 }
 
 /* ─── 滚动入场动效 ─────────────────────── */

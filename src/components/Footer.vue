@@ -20,19 +20,18 @@
       <div class="footer-links">
         <div class="footer-col">
           <h5>产品</h5>
-          <a href="#">发现活动</a>
-          <a href="#">发布活动</a>
-          <a href="#">兴趣分类</a>
+          <RouterLink to="/events">发现活动</RouterLink>
+          <RouterLink to="/create-event">发布活动</RouterLink>
         </div>
         <div class="footer-col">
           <h5>支持</h5>
-          <a href="#">帮助中心</a>
-          <a href="#">隐私政策</a>
-          <a href="#">使用条款</a>
+          <RouterLink to="/help">帮助中心</RouterLink>
+          <RouterLink to="/privacy">隐私政策</RouterLink>
+          <RouterLink to="/terms">使用条款</RouterLink>
         </div>
         <div class="footer-col">
           <h5>联系</h5>
-          <a href="mailto:support@linju.app">support@linju.app</a>
+          <a href="mailto:liuhb@qq.com">liuhb@qq.com</a>
         </div>
       </div>
     </div>

@@ -73,6 +73,18 @@ public interface ActivityRepository extends JpaRepository<Activity, Long>, JpaSp
     @Query("SELECT a FROM Activity a JOIN a.interests i WHERE i.id = :interestId AND LOWER(a.title) LIKE LOWER(CONCAT('%', :keyword, '%')) ORDER BY a.createdAt DESC")
     Page<Activity> findByInterestIdAndKeyword(@Param("interestId") Long interestId, @Param("keyword") String keyword, Pageable pageable);
 
+    // 按分类+关键词+状态+未过期（报名中筛选用）
+    @Query("SELECT a FROM Activity a JOIN a.interests i WHERE i.id = :interestId AND LOWER(a.title) LIKE LOWER(CONCAT('%', :keyword, '%')) AND a.status = :status AND a.startTime > :now ORDER BY a.createdAt DESC")
+    Page<Activity> findByInterestIdAndStatusAndStartTimeAfter(@Param("interestId") Long interestId, @Param("keyword") String keyword, Pageable pageable);
+
+    // 按分类+状态+未过期
+    @Query("SELECT a FROM Activity a JOIN a.interests i WHERE i.id = :interestId AND a.status = :status AND a.startTime > :now ORDER BY a.createdAt DESC")
+    Page<Activity> findByInterestIdAndStatusAndStartTimeAfter(@Param("interestId") Long interestId, @Param("status") ActivityStatus status, @Param("now") LocalDateTime now, Pageable pageable);
+
+    // 按关键词+状态+未过期
+    @Query("SELECT a FROM Activity a WHERE LOWER(a.title) LIKE LOWER(CONCAT('%', :keyword, '%')) AND a.status = :status AND a.startTime > :now ORDER BY a.createdAt DESC")
+    Page<Activity> findByTitleContainingIgnoreCaseAndStatusAndStartTimeAfter(@Param("keyword") String keyword, @Param("status") ActivityStatus status, @Param("now") LocalDateTime now, Pageable pageable);
+
     @Query("SELECT a FROM Activity a WHERE a.creator.id = :creatorId ORDER BY a.createdAt DESC")
     Page<Activity> findByCreatorId(@Param("creatorId") Long creatorId, Pageable pageable);
 

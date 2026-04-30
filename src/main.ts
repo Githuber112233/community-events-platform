@@ -15,6 +15,10 @@ const Register = () => import('./pages/Register.vue')
 const Admin = () => import('./pages/Admin.vue')
 const Layout = () => import('./components/Layout.vue')
 const FriendsList = () => import('./pages/FriendsList.vue')
+const HelpCenter = () => import('./pages/HelpCenter.vue')
+const PrivacyPolicy = () => import('./pages/PrivacyPolicy.vue')
+const TermsOfService = () => import('./pages/TermsOfService.vue')
+const Notifications = () => import('./pages/Notifications.vue')
 
 const router = createRouter({
   history: createWebHistory(),
@@ -31,6 +35,10 @@ const router = createRouter({
         { path: 'create-event', component: CreateEvent },
         { path: 'edit-event/:id', component: EditEvent },
         { path: 'friends/:type/:userId?', component: FriendsList },
+        { path: 'notifications', component: Notifications },
+        { path: 'help', component: HelpCenter },
+        { path: 'privacy', component: PrivacyPolicy },
+        { path: 'terms', component: TermsOfService },
       ],
     },
     { path: '/login', component: Login },

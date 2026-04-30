@@ -58,6 +58,20 @@
           </div>
 
           <template v-if="isAuthenticated">
+            <!-- 通知铃铛 -->
+            <RouterLink
+              to="/notifications"
+              class="relative p-2 rounded-xl hover:bg-primary-100 transition-colors duration-200"
+            >
+              <Bell class="w-5 h-5 text-primary-500" />
+              <span
+                v-if="unreadCount > 0"
+                class="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center min-w-[18px] min-h-[18px]"
+              >
+                {{ unreadCount > 99 ? '99+' : unreadCount }}
+              </span>
+            </RouterLink>
+
             <!-- 发布活动 -->
             <RouterLink to="/create-event" class="btn-primary text-sm py-2 px-4">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -167,13 +181,29 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { Home, Calendar, User } from 'lucide-vue-next'
+import { Home, Calendar, User, Bell } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
 const showUserMenu = ref(false)
 const userMenuRef = ref<HTMLElement | null>(null)
 const scrolled = ref(false)
+const unreadCount = ref(0)
+
+// 获取通知未读数量
+const fetchUnreadCount = async () => {
+  const token = localStorage.getItem('token')
+  if (!token) { unreadCount.value = 0; return }
+  try {
+    const res = await fetch('/api/notifications/unread-count', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    const data = await res.json()
+    if (data.code === 200 && data.data) {
+      unreadCount.value = data.data.unreadCount || 0
+    }
+  } catch {}
+}
 
 // 登录状态
 const token = ref(localStorage.getItem('token'))
@@ -250,6 +280,9 @@ onMounted(() => {
   window.addEventListener('auth-change', handleAuthChange)
   handleScroll()
   handleAuthChange()
+  fetchUnreadCount()
+  // 每30秒刷新未读数量
+  setInterval(fetchUnreadCount, 30000)
 })
 
 onUnmounted(() => {

@@ -10,9 +10,11 @@
   "dependencies": {
     "clsx": "^2.0.0",
     "docx": "^9.6.1",
+    "echarts": "^6.0.0",
     "lucide-vue-next": "^0.294.0",
     "tailwind-merge": "^2.0.0",
     "vue": "^3.4.0",
+    "vue-echarts": "^8.0.1",
     "vue-router": "^4.3.0"
   },
   "devDependencies": {

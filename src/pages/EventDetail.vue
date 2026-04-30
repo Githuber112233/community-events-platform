@@ -138,10 +138,21 @@
                 <span v-else-if="event.status !== 'RECRUITING'">报名已截止</span>
                 <span v-else>立即报名</span>
               </button>
-              <button class="btn-secondary flex items-center justify-center space-x-2">
-                <Share2 class="w-4 h-4" />
-                <span>分享活动</span>
-              </button>
+              <div class="flex gap-2">
+                <!-- 一键通知参与者（仅创建者可见） -->
+                <button
+                  v-if="isCreator"
+                  @click="showNotifyModal = true"
+                  class="btn-secondary flex items-center justify-center space-x-2"
+                >
+                  <Bell class="w-4 h-4" />
+                  <span>通知参与者</span>
+                </button>
+                <button class="btn-secondary flex items-center justify-center space-x-2">
+                  <Share2 class="w-4 h-4" />
+                  <span>分享</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -370,6 +381,62 @@
             </div>
           </div>
 
+          <!-- 通知参与者弹窗 -->
+          <div v-if="showNotifyModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" @click.self="showNotifyModal = false">
+            <div class="bg-white rounded-xl max-w-md w-full p-6">
+              <h3 class="text-lg font-bold text-gray-900 mb-2">通知活动参与者</h3>
+              <p class="text-sm text-gray-500 mb-4">将发送通知给所有已报名的参与者</p>
+
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">通知标题</label>
+                  <input
+                    v-model="notifyTitle"
+                    type="text"
+                    placeholder="例如：活动时间变更提醒"
+                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">通知内容</label>
+                  <textarea
+                    v-model="notifyContent"
+                    placeholder="请输入你想通知参与者的内容..."
+                    rows="4"
+                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none resize-none"
+                  ></textarea>
+                </div>
+              </div>
+
+              <div class="flex gap-3 mt-6">
+                <button @click="showNotifyModal = false" class="flex-1 btn-secondary">取消</button>
+                <button
+                  @click="handleNotifyParticipants"
+                  :disabled="sendingNotify || !notifyContent.trim()"
+                  class="flex-1 btn-primary"
+                >
+                  <span v-if="sendingNotify">发送中...</span>
+                  <span v-else>发送通知</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 取消报名确认弹窗 -->
+          <div v-if="cancelConfirm" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" @click.self="cancelConfirm = false">
+            <div class="bg-white rounded-xl max-w-sm w-full p-6 text-center">
+              <div class="w-14 h-14 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle class="w-7 h-7 text-orange-600" />
+              </div>
+              <h3 class="text-lg font-bold text-gray-900 mb-2">确认取消报名？</h3>
+              <p class="text-sm text-gray-500 mb-6">取消后需要重新报名才能参与该活动</p>
+              <div class="flex gap-3">
+                <button @click="cancelConfirm = false" class="flex-1 btn-secondary py-2.5">再想想</button>
+                <button @click="confirmCancel" class="flex-1 bg-red-500 text-white rounded-lg py-2.5 font-medium hover:bg-red-600 transition-colors">确认取消</button>
+              </div>
+            </div>
+          </div>
+
           <!-- Similar Events -->
           <div class="card p-6">
             <h3 class="font-bold text-gray-900 mb-4">相似活动</h3>
@@ -418,8 +485,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { Calendar, MapPin, Users, Clock, Share2, Heart, ChevronLeft } from 'lucide-vue-next'
+import { Calendar, MapPin, Users, Clock, Share2, Heart, ChevronLeft, Bell, AlertTriangle } from 'lucide-vue-next'
 import { activityApi, commentApi, type Activity, type Comment } from '../utils/mockData'
+import { notificationApi } from '../utils/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -436,6 +504,10 @@ const newComment = ref('')
 const submittingComment = ref(false)
 const similarEvents = ref<Activity[]>([])
 const showParticipantsModal = ref(false)
+const showNotifyModal = ref(false)
+const notifyTitle = ref('活动提醒')
+const notifyContent = ref('')
+const sendingNotify = ref(false)
 
 const isLoggedIn = computed(() => !!localStorage.getItem('token'))
 
@@ -692,6 +764,8 @@ const handleLike = async () => {
   }
 }
 
+const cancelConfirm = ref(false)
+
 const handleParticipate = async () => {
   if (!isLoggedIn.value) {
     router.push('/login')
@@ -699,31 +773,72 @@ const handleParticipate = async () => {
   }
   if (!event.value) return
 
+  // 取消报名：显示确认弹窗
+  if (participating.value) {
+    cancelConfirm.value = true
+    return
+  }
+
+  // 报名
   try {
-    if (participating.value) {
-      const res = await activityApi.cancelParticipation(event.value.id)
-      if (res.code === 200) {
-        participating.value = false
-        alert('已取消报名')
-        fetchParticipants()
-        fetchEventDetail()
-      } else {
-        alert(res.message || '取消失败')
-      }
+    const res = await activityApi.participateActivity(event.value.id)
+    if (res.code === 200) {
+      participating.value = true
+      alert('报名成功！')
+      fetchParticipants()
+      fetchEventDetail()
     } else {
-      const res = await activityApi.participateActivity(event.value.id)
-      if (res.code === 200) {
-        participating.value = true
-        alert('报名成功！')
-        fetchParticipants()
-        fetchEventDetail()
-      } else {
-        alert(res.message || '报名失败')
-      }
+      alert(res.message || '报名失败')
     }
   } catch (e) {
     console.error('报名操作失败:', e)
     alert('操作失败，请稍后重试')
+  }
+}
+
+const confirmCancel = async () => {
+  if (!event.value) return
+  cancelConfirm.value = false
+  try {
+    const res = await activityApi.cancelParticipation(event.value.id)
+    if (res.code === 200) {
+      participating.value = false
+      alert('已取消报名')
+      fetchParticipants()
+      fetchEventDetail()
+    } else {
+      alert(res.message || '取消失败')
+    }
+  } catch (e) {
+    console.error('取消失败:', e)
+    alert('取消失败，请稍后重试')
+  }
+}
+
+// 一键通知参与者
+const handleNotifyParticipants = async () => {
+  if (!event.value || !notifyContent.value.trim()) return
+  sendingNotify.value = true
+  try {
+    const res = await notificationApi.notifyParticipants(
+      event.value.id,
+      notifyTitle.value.trim() || '活动提醒',
+      notifyContent.value.trim()
+    )
+    if (res.code === 200) {
+      const data = (res as any).data
+      alert(data?.message || '通知已发送')
+      showNotifyModal.value = false
+      notifyContent.value = ''
+      notifyTitle.value = '活动提醒'
+    } else {
+      alert(res.message || '发送失败')
+    }
+  } catch (e) {
+    console.error('发送通知失败:', e)
+    alert('发送通知失败')
+  } finally {
+    sendingNotify.value = false
   }
 }
 

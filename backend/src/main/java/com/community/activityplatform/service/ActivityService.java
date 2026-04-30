@@ -35,6 +35,8 @@ public class ActivityService {
     private final ActivityViewRepository viewRepository;
     private final UserRepository userRepository;
     private final InterestRepository interestRepository;
+    private final RecommendationService recommendationService;
+    private final NotificationService notificationService;
 
     /**
      * 创建活动
@@ -119,6 +121,13 @@ public class ActivityService {
                     .createdAt(LocalDateTime.now())
                     .build();
             viewRepository.save(view);
+
+            // 浏览行为反馈：更新兴趣权重
+            try {
+                recommendationService.updateInterestFeedback(userId, activityId, "view");
+            } catch (Exception e) {
+                // 兴趣权重更新失败不影响主流程
+            }
         }
 
         return Result.success(activityDTO);
@@ -131,30 +140,47 @@ public class ActivityService {
     public Result<Page<ActivityDTO>> getActivityList(Activity.ActivityStatus status, Long categoryId, String keyword, Pageable pageable, Long userId) {
         Page<Activity> activities;
         boolean allStatuses = (status == null);
+        LocalDateTime now = LocalDateTime.now();
 
         if (categoryId != null && categoryId > 0) {
             // 按分类筛选
             if (keyword != null && !keyword.trim().isEmpty()) {
                 // 分类 + 关键词
-                activities = allStatuses
-                        ? activityRepository.findByInterestIdAndKeyword(categoryId, keyword.trim(), pageable)
-                        : activityRepository.findByInterestIdAndStatus(categoryId, status, pageable);
+                if (allStatuses) {
+                    activities = activityRepository.findByInterestIdAndKeyword(categoryId, keyword.trim(), pageable);
+                } else if (status == Activity.ActivityStatus.RECRUITING) {
+                    activities = activityRepository.findByInterestIdAndStatusAndStartTimeAfter(categoryId, keyword.trim(), pageable);
+                } else {
+                    activities = activityRepository.findByInterestIdAndStatus(categoryId, status, pageable);
+                }
             } else {
                 // 仅分类
-                activities = allStatuses
-                        ? activityRepository.findByInterestId(categoryId, pageable)
-                        : activityRepository.findByInterestIdAndStatus(categoryId, status, pageable);
+                if (allStatuses) {
+                    activities = activityRepository.findByInterestId(categoryId, pageable);
+                } else if (status == Activity.ActivityStatus.RECRUITING) {
+                    activities = activityRepository.findByInterestIdAndStatusAndStartTimeAfter(categoryId, status, now, pageable);
+                } else {
+                    activities = activityRepository.findByInterestIdAndStatus(categoryId, status, pageable);
+                }
             }
         } else if (keyword != null && !keyword.trim().isEmpty()) {
             // 仅关键词
-            activities = allStatuses
-                    ? activityRepository.findByKeywordAllStatuses(keyword.trim(), pageable)
-                    : activityRepository.findByTitleContainingIgnoreCaseAndStatus(keyword.trim(), status, pageable);
+            if (allStatuses) {
+                activities = activityRepository.findByKeywordAllStatuses(keyword.trim(), pageable);
+            } else if (status == Activity.ActivityStatus.RECRUITING) {
+                activities = activityRepository.findByTitleContainingIgnoreCaseAndStatusAndStartTimeAfter(keyword.trim(), status, now, pageable);
+            } else {
+                activities = activityRepository.findByTitleContainingIgnoreCaseAndStatus(keyword.trim(), status, pageable);
+            }
         } else {
             // 无筛选条件
-            activities = allStatuses
-                    ? activityRepository.findAllActivities(pageable)
-                    : activityRepository.findByStatus(status, pageable);
+            if (allStatuses) {
+                activities = activityRepository.findAllActivities(pageable);
+            } else if (status == Activity.ActivityStatus.RECRUITING) {
+                activities = activityRepository.findByStatusAndStartTimeAfter(status, now, pageable);
+            } else {
+                activities = activityRepository.findByStatus(status, pageable);
+            }
         }
 
         Page<ActivityDTO> activityDTOs = activities.map(activity -> {
@@ -344,12 +370,16 @@ public class ActivityService {
         activity.setCurrentParticipants(activity.getCurrentParticipants() + 1);
         activityRepository.save(activity);
 
+        // 参与行为反馈：更新兴趣权重
+        try {
+            recommendationService.updateInterestFeedback(userId, activityId, "participate");
+        } catch (Exception e) {
+            // 兴趣权重更新失败不影响主流程
+        }
+
         return Result.success();
     }
 
-    /**
-     * 取消参与活动
-     */
     @Transactional
     public Result<Void> cancelParticipation(Long userId, Long activityId) {
         Optional<ActivityParticipant> participant = participantRepository.findByUser_IdAndActivity_Id(userId, activityId);
@@ -376,6 +406,13 @@ public class ActivityService {
         // 将状态改为 CANCELLED，而不是删除记录（保留历史）
         p.setStatus(ActivityParticipant.ParticipantStatus.CANCELLED);
         participantRepository.save(p);
+
+        // 通知活动创建者：有人取消了报名
+        try {
+            notificationService.notifyCreatorOnCancel(userId, activityId);
+        } catch (Exception e) {
+            // 通知失败不影响主流程
+        }
 
         return Result.success();
     }
@@ -404,6 +441,13 @@ public class ActivityService {
         // 更新点赞数
         activity.setLikeCount(activity.getLikeCount() + 1);
         activityRepository.save(activity);
+
+        // 点赞行为反馈：更新兴趣权重
+        try {
+            recommendationService.updateInterestFeedback(userId, activityId, "like");
+        } catch (Exception e) {
+            // 兴趣权重更新失败不影响主流程
+        }
 
         return Result.success();
     }
